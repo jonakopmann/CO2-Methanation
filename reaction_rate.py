@@ -99,21 +99,6 @@ class ReactionRate:
     def __init__(self, params: Parameters):
         self.params = params
 
-    def get_p_h2(self, y_i):
-        return self.params.p_t * (self.params.y_h2_0 - (self.params.v_h2 / self.params.v_i) * (self.params.y_i_0 - y_i))
-
-    def get_p_co2(self, y_i):
-        return self.params.p_t * (
-                self.params.y_co2_0 - (self.params.v_co2 / self.params.v_i) * (self.params.y_i_0 - y_i))
-
-    def get_p_ch4(self, y_i):
-        return self.params.p_t * (
-                self.params.y_ch4_0 - (self.params.v_ch4 / self.params.v_i) * (self.params.y_i_0 - y_i))
-
-    def get_p_h2o(self, y_i):
-        return self.params.p_t * (
-                self.params.y_h20_0 - (self.params.v_h20 / self.params.v_i) * (self.params.y_i_0 - y_i))
-
     def get_k(self):
         # for now just return k_ref
         # k_0_ref * exp(E_A/R * (1/T_ref - 1/T))
@@ -134,23 +119,25 @@ class ReactionRate:
         # K_x_ref * exp(delta_H_x/R * (1/T_ref - 1/T))
         return self.params.K_mix_ref
 
-    def get_K_eq(self):
+    def get_H_R(self, T):
+        return (self.params.v_co2 * get_H_co2(T) + self.params.v_h2 * get_H_h2(T)
+                + self.params.v_ch4 * get_H_ch4(T) + self.params.v_h2o * get_H_h20(T)) * 1000  # [J/mol]
+
+    def get_K_eq(self, T):
         # for now just return ref
         # exp(-delta_R_G/RT)
-        T = self.params.T_ref
         H = (self.params.v_co2 * get_H_co2(T) + self.params.v_h2 * get_H_h2(T)
-             + self.params.v_ch4 * get_H_ch4(T) + self.params.v_h20 * get_H_h20(T)) * 1000  # [J/mol]
+             + self.params.v_ch4 * get_H_ch4(T) + self.params.v_h2o * get_H_h20(T)) * 1000  # [J/mol]
         S = (self.params.v_co2 * get_S_co2(T) + self.params.v_h2 * get_S_h2(T)
-             + self.params.v_ch4 * get_S_ch4(T) + self.params.v_h20 * get_S_h20(T))  # [J/(mol*K)]
-        G = -(H - T * S)  # [J/mol]
-        return math.exp(-G / (self.params.R * T))
+             + self.params.v_ch4 * get_S_ch4(T) + self.params.v_h2o * get_S_h20(T))  # [J/(mol*K)]
+        G = (H - T * S)  # [J/mol]
+        # return math.exp(-G / (self.params.R * T))
+        return 137 * (T ** -3.998) * math.exp(158.7 * 1000 / (self.params.R * T))
 
-    def calc(self, y_i):
-        p_h2 = self.get_p_h2(y_i)
-        p_co2 = self.get_p_co2(y_i)
-        p_ch4 = self.get_p_ch4(y_i)
-        p_h2o = self.get_p_h2o(y_i)
-        return (self.get_k() * (
-                p_h2 ** 0.5 * p_co2 ** 0.5 * (1 - (p_ch4 * p_h2o ** 2) / (p_co2 * p_h2 ** 4 * self.get_K_eq())))
-                / (1 + self.get_K_oh() * (self.get_p_h2o(y_i) / self.get_p_h2(y_i) ** 0.5)
-                   + self.get_K_h2() * self.get_p_h2(y_i) ** 0.5 + self.get_K_mix() * self.get_p_co2(y_i) ** 0.5) ** 2)
+    def calc(self, y_co2, y_h2, y_ch4, y_h2o):
+        p_co2 = self.params.p_t * y_co2
+        p_h2 = self.params.p_t * y_h2
+        p_ch4 = self.params.p_t * y_ch4
+        p_h2o = self.params.p_t * y_h2o
+        return (self.get_k() * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(self.params.T_ref)))
+                / ((1 + self.get_K_oh() * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2() * (p_h2 ** 0.5) + self.get_K_mix() * (p_co2 ** 0.5)) ** 2))
