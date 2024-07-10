@@ -14,12 +14,16 @@ class Parameters:
     v_ch4 = 1
     v_h2o = 2
 
+    # dynamic const
+    delta_y = 0.05
+    f = 2
+
     # constants
     p_t = 1  # [bar]
     c_p = 0  # [kJ/(K*mol)]
     roh_s = 2350 * 1000  # [g/m^3]
     epsilon = 0.5
-    D_i_eff = 1e12  # [nm^2/s]
+    D_i_eff = 1  # [mm^2/s]
     n = 0
     R = 8.314463  # [J/(mol*K)]
 
@@ -42,4 +46,4 @@ class Parameters:
     T_0 = 473  # [K]
     T_surf = 0  # [K]
     t_steps = 100
-    t_i = np.linspace(0, 900, t_steps)  # [s]
+    t_i = np.linspace(0, 1, t_steps)  # [s]
