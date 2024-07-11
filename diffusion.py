@@ -25,6 +25,6 @@ class Diffusion:
 
     def calc(self, y_i, y_i_surf, r):
         if r == 0:
-            return self.params.D_i_eff * self.get_dr2(y_i, y_i_surf, r)
-        return self.params.D_i_eff * (
+            return self.get_D_i() * self.get_dr2(y_i, y_i_surf, r)
+        return self.get_D_i() * (
                 self.get_dr2(y_i, y_i_surf, r) + (self.params.n / (r * self.params.h)) * self.get_dr(y_i, r))
