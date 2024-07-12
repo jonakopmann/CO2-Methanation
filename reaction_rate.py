@@ -131,7 +131,7 @@ class ReactionRate:
         # exp(-delta_R_G/RT)
         S = (self.params.v_co2 * (213.79 + get_S_co2(T)) + self.params.v_h2 * (130.68 + get_S_h2(T))
              + self.params.v_ch4 * (186.25 + get_S_ch4(T)) + self.params.v_h2o * (188.84 + get_S_h20(T)))  # [J/(mol*K)]
-        G = (self.get_H_R(T) - T * S)  # [J/mol]
+        G = self.get_H_R(T) - T * S  # [J/mol]
         return ca.exp(-G / (self.params.R * T)) * self.params.p_t ** -2
 
     def calc(self, y_co2, y_h2, y_ch4, y_h2o, T):
