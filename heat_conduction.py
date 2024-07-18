@@ -23,8 +23,9 @@ class HeatConduction:
             return (T[r - 1] - 2 * T[r] + T_surf) / (self.params.h ** 2)
         return (T[r - 1] - 2 * T[r] + T[r + 1]) / (self.params.h ** 2)
 
-    def calc(self, T, T_suf, r):
+    def get_term(self, T, T_suf, r):
         if r == 0:
-            return self.get_lambda() * self.get_dr2(T, T_suf, r)
-        return self.get_lambda() * (
-                self.get_dr2(T, T_suf, r) + (self.params.n / (r * self.params.h)) * self.get_dr(T, r))
+            a = self.get_dr2(T, T_suf, r)
+        else:
+            a = self.get_dr2(T, T_suf, r) + (self.params.n / (r * self.params.h)) * self.get_dr(T, r)
+        return self.get_lambda() / (self.params.roh_s * self.params.c_p) * a

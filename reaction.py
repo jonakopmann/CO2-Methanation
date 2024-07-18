@@ -95,7 +95,7 @@ def get_S_h20(T):
     return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2)
 
 
-class ReactionRate:
+class Reaction:
     def __init__(self, params: Parameters):
         self.params = params
 
@@ -127,19 +127,27 @@ class ReactionRate:
         return 1000 * (self.params.v_co2 * H_f_co2 + self.params.v_h2 * H_f_h2
                        + self.params.v_ch4 * H_f_ch4 + self.params.v_h2o * H_f_h2o)  # [J/mol]
 
-    def get_K_eq(self, T):
+    def get_K_eq(self, T, p):
         # exp(-delta_R_G/RT)
         S = (self.params.v_co2 * (213.79 + get_S_co2(T)) + self.params.v_h2 * (130.68 + get_S_h2(T))
              + self.params.v_ch4 * (186.25 + get_S_ch4(T)) + self.params.v_h2o * (188.84 + get_S_h20(T)))  # [J/(mol*K)]
         G = self.get_H_R(T) - T * S  # [J/mol]
-        return ca.exp(-G / (self.params.R * T)) * self.params.p_t ** -2
+        return ca.exp(-G / (self.params.R * T)) * p ** -2
+        # return 137 * (T ** -3.998) * ca.exp(158.7e3 / (self.params.R * T))
 
-    def calc(self, y_co2, y_h2, y_ch4, y_h2o, T):
-        p_co2 = self.params.p_t * y_co2
-        p_h2 = self.params.p_t * y_h2
-        p_ch4 = self.params.p_t * y_ch4
-        p_h2o = self.params.p_t * y_h2o
+    def get_r(self, w_co2, w_h2, w_ch4, w_h2o, T, p, M):
+        p_co2 = p * w_co2 * M / self.params.M_co2
+        p_h2 = p * w_h2 * M / self.params.M_h2
+        p_ch4 = p * w_ch4 * M / self.params.M_ch4
+        p_h2o = p * w_h2o * M / self.params.M_h2o
+        t = p_co2 + p_h2 + p_ch4 + p_h2o
         return (self.get_k(T) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
-                1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(T)))
+                1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(T, p)))
                 / ((1 + self.get_K_oh(T) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(T) *
                     (p_h2 ** 0.5) + self.get_K_mix(T) * (p_co2 ** 0.5)) ** 2))
+
+    def get_mass_term(self, M_i, roh_g, v_i, r):
+        return ((1 - self.params.epsilon) / self.params.epsilon) * M_i / roh_g * self.params.roh_s * v_i * r
+
+    def get_heat_term(self, T, r):
+        return -self.get_H_R(T) / self.params.c_p * (1 - self.params.epsilon) * r
