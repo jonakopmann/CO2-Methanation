@@ -13,11 +13,12 @@ def w_to_y(w_i, M_i, M):
 
 
 class Integrator:
-    def __init__(self, params: Parameters):
+    def __init__(self, params: Parameters, debug=False):
         self.params = params
         self.diff = Diffusion(self.params)
         self.reaction = Reaction(self.params)
         self.heat_cond = HeatConduction(self.params)
+        self.debug = debug
 
     def get_D_i_j(self, T, p, M_i, M_j, v_i, v_j):
         return 1e-1 * (T ** 1.75) * (((M_i ** -1) + (M_j ** -1)) ** 0.5) / (
@@ -27,13 +28,9 @@ class Integrator:
         return (1 - y_i) / ((y_j_1 / D_i_j_1) + (y_j_2 / D_i_j_2) + (y_j_3 / D_i_j_3))
 
     def get_D_i_Kn(self, T, M_i):
-        return self.params.d_pore / 3 * ca.sqrt(8000 * self.params.R * T / (ca.pi * M_i))
+        return self.params.d_pore / 3 * ca.sqrt(8e3 * self.params.R * T / (ca.pi * M_i))
 
     def run(self):
-        # M = (self.params.w_co2_0 / self.params.M_co2 + self.params.w_h2_0 / self.params.M_h2) ** -1
-        # r = self.r_rate.get_r(self.params.w_co2_0, self.params.w_h2_0, 0, 0, 555, 1, M)
-        # roh_g = 1e5 * M / (self.params.R * 555)
-        # w = self.r_rate.get_mass_term(self.params.M_co2, roh_g, -1, r)
         # create sym variables for y_i, T and t
         w_co2 = ca.SX.sym('w_co2', self.params.r_steps)
         w_h2 = ca.SX.sym('w_h2', self.params.r_steps)
@@ -136,8 +133,13 @@ class Integrator:
             'ode': ca.vertcat(ode_co2, ode_h2, ode_ch4, ode_h2o, ode_T),
             'alg': ca.vertcat(alg_co2, alg_h2, alg_ch4, alg_h2o, alg_T, alg_D_co2, alg_D_h2, alg_D_ch4, alg_D_h2o, alg_p)
         }
-        # integrator = ca.integrator('I', 'idas', dae, 0, self.params.t_i, {'regularity_check': True})
-        integrator = ca.integrator('I', 'idas', dae, 0, self.params.t_i, {'verbose': True, 'monitor': 'daeF', 'regularity_check': True})
+
+        options = {'regularity_check': True,}
+        if self.debug:
+            options['verbose'] = True
+            options['monitor'] = 'daeF'
+
+        integrator = ca.integrator('I', 'idas', dae, 0, self.params.t_i, options)
 
         # create initial values
         w_co2_0 = np.full(self.params.r_steps, self.params.w_co2_0)
@@ -154,6 +156,7 @@ class Integrator:
         res = integrator(x0=x0, z0=z0)
         res_x = ca.vertsplit(res['xf'], self.params.r_steps)
         res_z = ca.vertsplit(res['zf'])
+
         # add surface values
         res_w_co2 = ca.vertcat(res_x[0], res_z[0])
         res_w_h2 = ca.vertcat(res_x[1], res_z[1])
@@ -162,7 +165,6 @@ class Integrator:
         res_T = ca.vertcat(res_x[4], res_z[4])
         res_p = ca.vertcat(ca.vertcat(*res_z[-self.params.r_steps:]), res_z[-self.params.r_steps:][-1])
 
-        print(res_x)
         # plot y_i and T
         plotter = Plotter()
         plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_w_co2.full(),
@@ -173,6 +175,9 @@ class Integrator:
                      't / s', 'r / mm', r'$w_\mathrm{CH_4}$', r'$\mathrm{CH_4}$', 0, 1)
         plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_w_h2o.full(),
                      't / s', 'r / mm', r'$w_\mathrm{H_2O}$', r'$\mathrm{H_2O}$', 0, 1)
+        plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1),
+                     1 - res_w_co2.full() - res_w_h2.full() - res_w_ch4.full() - res_w_h2o.full(),
+                     't / s', 'r / mm', r'$w_\mathrm{error}$', r'$\mathrm{Error}$', 0, 1)
         plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_T.full(),
                      't / s', 'r / mm', 'T / K', 'Temperature')
         plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_p.full(),
