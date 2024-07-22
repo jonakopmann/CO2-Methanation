@@ -51,48 +51,48 @@ def get_H_h20(T):
     return A * t + B * t ** 2 / 2 + C * t ** 3 / 3 + D * t ** 4 / 4 - E / t + F - H
 
 
-def get_S_co2(T):
-    t = (T - 298.15) / 1000
+def get_S_h2(T):
+    t = T / 1000
     A = 33.066178
     B = -11.363417
     C = 11.432816
     D = -2.772874
     E = -0.158558
     G = 172.707974
-    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2)
+    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2) + G
 
 
-def get_S_h2(T):
-    t = (T - 298.15) / 1000
+def get_S_co2(T):
+    t = T / 1000
     A = 24.99735
     B = 55.18696
     C = -33.69137
     D = 7.948387
     E = -0.136638
     G = 228.2431
-    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2)
+    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2) + G
 
 
 def get_S_ch4(T):
-    t = (T - 298.15) / 1000
+    t = T / 1000
     A = -0.703029
     B = 108.4773
     C = -42.5215
     D = 5.862788
     E = 0.678565
     G = 158.7163
-    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2)
+    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2) + G
 
 
 def get_S_h20(T):
-    t = (T - 298.15) / 1000
+    t = T / 1000
     A = 30.09200
     B = 6.832514
     C = 6.793435
     D = -2.534480
     E = 0.082139
     G = 223.3967
-    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2)
+    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2) + G
 
 
 class Reaction:
@@ -129,11 +129,13 @@ class Reaction:
 
     def get_K_eq(self, T, p):
         # exp(-delta_R_G/RT)
-        S = (self.params.v_co2 * (213.79 + get_S_co2(T)) + self.params.v_h2 * (130.68 + get_S_h2(T))
-             + self.params.v_ch4 * (186.25 + get_S_ch4(T)) + self.params.v_h2o * (188.84 + get_S_h20(T)))  # [J/(mol*K)]
+        S = (self.params.v_co2 * (get_S_co2(T)) + self.params.v_h2 * (get_S_h2(T))
+             + self.params.v_ch4 * (get_S_ch4(T)) + self.params.v_h2o * (get_S_h20(T)))  # [J/(mol*K)]
         G = self.get_H_R(T) - T * S  # [J/mol]
         return ca.exp(-G / (self.params.R * T)) * p ** -2
-        # return 137 * (T ** -3.998) * ca.exp(158.7e3 / (self.params.R * T))
+
+    def get_K_eq_imp(self, T, p):
+        return 137 * (T ** -3.998) * ca.exp(158.7e3 / (self.params.R * T))
 
     def get_r(self, w_co2, w_h2, w_ch4, w_h2o, T, p, M):
         p_co2 = p * w_co2 * M / self.params.M_co2
