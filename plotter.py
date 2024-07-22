@@ -4,8 +4,19 @@ from cmcrameri import cm
 
 
 class Plotter:
-    def __init__(self, fig_w=7, fig_h=3.5, fig_pad=0.1):
-        #plt.rcParams['figure.figsize'] = (fig_w, fig_h)
+    def __init__(self, t, r, w_co2, w_h2, w_ch4, w_h2o, T, p):
+        self.t = t
+        self.r = r
+        self.w_co2 = w_co2
+        self.w_h2 = w_h2
+        self.w_ch4 = w_ch4
+        self.w_h2o = w_h2o
+        self.T = T
+        self.p = p
+        self.set_params()
+
+    def set_params(self):
+        # plt.rcParams['figure.figsize'] = (fig_w, fig_h)
         plt.rcParams['axes.linewidth'] = 1  # set the value globally
         plt.rc('xtick', labelsize=10)
         plt.rc('ytick', labelsize=10)
@@ -36,25 +47,82 @@ class Plotter:
         self.colors = plt.cm.Dark2(np.linspace(0, 1, 8))
         self.cmap = cm.bamako
 
-    def plot(self, X, Y, data, xlabel, ylabel, zlabel, title, zmin=None, zmax=None):
+    def plot_w(self, t, title):
+        # create figure
         fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+        ax = fig.add_subplot()
 
-        # set axis limits
-        ax.set_xlim(min(X), max(X))
-        ax.set_ylim(min(Y), max(Y))
+        # set limits for x and y axis (r and w)
+        ax.set_xlim(min(self.r), max(self.r))
+        ax.set_ylim(0, 1)
+
+        ax.plot(self.r, self.w_co2[:, t], label=r'$w_\mathrm{CO_2}$')
+        ax.plot(self.r, self.w_h2[:, t], label=r'$w_\mathrm{H_2}$')
+        ax.plot(self.r, self.w_ch4[:, t], label=r'$w_\mathrm{CH_4}$')
+        ax.plot(self.r, self.w_h2o[:, t], label=r'$w_\mathrm{H_2O}$')
+
+        # set title
+        ax.set_title(title)
+        ax.set_xlabel('r / mm')
+        ax.set_ylabel(r'$w_\mathrm{i}$')
+        ax.legend()
+
+        fig.show()
+
+    def plot_3d(self, Z, label, title, zmin=None, zmax=None):
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+
+        ax.set_xlim(min(self.t), max(self.t))
+        ax.set_ylim(min(self.r), max(self.r))
         if zmin is not None and zmax is not None:
             ax.set_zlim(zmin, zmax)
 
         # create meshgrid and plot
-        X, Y = np.meshgrid(X, Y)
-        ax.plot_surface(X, Y, data, cmap=self.cmap, linewidth=0)
+        X, Y = np.meshgrid(self.t, self.r)
+        ax.plot_surface(X, Y, Z, cmap=self.cmap)
 
         # set title and labels
         ax.set_title(title)
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.set_zlabel(zlabel)
+        ax.set_xlabel('t / s')
+        ax.set_ylabel('r / mm')
+        ax.set_zlabel(label)
 
         # show
         fig.show()
+
+    def plot_3d_all(self):
+        self.plot_3d(self.w_co2, r'$w_\mathrm{CO_2}$', r'$\mathrm{CO_2}$', 0, 1)
+        self.plot_3d(self.w_h2, r'$w_\mathrm{H_2}$', r'$\mathrm{H_2}$', 0, 1)
+        self.plot_3d(self.w_ch4, r'$w_\mathrm{CH_4}$', r'$\mathrm{CH_4}$', 0, 1)
+        self.plot_3d(self.w_h2o, r'$w_\mathrm{H_2O}$', r'$\mathrm{H_2O}$', 0, 1)
+        self.plot_3d(self.T, 'T / K', 'Temperature')
+        self.plot_3d(self.p, 'p / bar', 'Pressure')
+
+    def plot_hm(self, Z, label, title, zmin, zmax):
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        ax.set_xlim(min(self.t), max(self.t))
+        ax.set_ylim(min(self.r), max(self.r))
+
+        # create meshgrid and plot
+        X, Y = np.meshgrid(self.t, self.r)
+        hm = ax.pcolor(X, Y, Z, cmap=self.cmap)
+
+        # set title and labels
+        ax.set_title(title)
+        ax.set_xlabel('t / s')
+        ax.set_ylabel('r / mm')
+
+        cb = fig.colorbar(hm, orientation='horizontal')
+        cb.set_label(label)
+
+        # show
+        fig.show()
+
+    def plot_hm_all(self):
+        self.plot_hm(self.w_co2, r'$w_\mathrm{CO_2}$', r'$\mathrm{CO_2}$', 0, 1)
+        self.plot_hm(self.w_h2, r'$w_\mathrm{H_2}$', r'$\mathrm{H_2}$', 0, 1)
+        self.plot_hm(self.w_ch4, r'$w_\mathrm{CH_4}$', r'$\mathrm{CH_4}$', 0, 1)
+        self.plot_hm(self.w_h2o, r'$w_\mathrm{H_2O}$', r'$\mathrm{H_2O}$', 0, 1)

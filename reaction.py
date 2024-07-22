@@ -142,7 +142,7 @@ class Reaction:
         p_h2 = p * w_h2 * M / self.params.M_h2
         p_ch4 = p * w_ch4 * M / self.params.M_ch4
         p_h2o = p * w_h2o * M / self.params.M_h2o
-        t = p_co2 + p_h2 + p_ch4 + p_h2o
+
         return (self.get_k(T) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
                 1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(T, p)))
                 / ((1 + self.get_K_oh(T) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(T) *

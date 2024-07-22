@@ -32,34 +32,34 @@ class Parameters:
     delta_y = 0.05
     delta_T = 0
     f_y = 2  # [1/s]
-    f_T = 0.5  # [1/s]
+    f_T = 0.7  # [1/s]
 
     # constants
     p_0 = 1  # [bar]
-    c_p = 880 * 1e-3  # [J/(K*g)]
-    roh_s = 2350 * 1e3  # [g/m^3]
+    c_p = 880e-3  # [J/(K*g)]
+    roh_s = 2350e3  # [g/m^3]
     epsilon = 0.5
-    tau = 3
+    tau = 4
     D_i_eff = 1  # [mm^2/s]
-    lambda_eff = 0.67 * 1e-3  # [W/(mm*K)]
+    lambda_eff = 0.67e-3  # [W/(mm*K)]
     n = 2
     R = 8.314463  # [J/(mol*K)]
-    d_pore = 20e-9  # [m]
+    d_pore = 15e-9  # [m]
 
     # reference values
     T_ref = 555  # [K]
     k_0_ref = 3.46e-4  # [mol/(bar*s*g)]
-    EA = 77.5 * 1e3  # [J/mol]
+    EA = 77.5e3  # [J/mol]
     K_oh_ref = 0.5  # [1/bar^0.5]
-    delta_H_oh = 22.4 * 1e3  # [J/mol]
+    delta_H_oh = 22.4e3  # [J/mol]
     K_h2_ref = 0.44  # [1/bar^0.5]
-    delta_H_h2 = -6.2 * 1e3  # [J/mol]
+    delta_H_h2 = -6.2e3  # [J/mol]
     K_mix_ref = 0.88  # [1/bar^0.5]
-    delta_H_mix = -10 * 1e3  # [J/mol]
+    delta_H_mix = -10e3  # [J/mol]
 
     # integration params
     r_steps = 50
-    r_max = 1.5  # [mm]
+    r_max = 0.6  # [mm]
     h = r_max / r_steps  # [mm]
     T_0 = 555  # [K]
     t_steps = 100

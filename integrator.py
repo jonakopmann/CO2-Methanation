@@ -91,7 +91,8 @@ class Integrator:
                           + self.reaction.get_mass_term(self.params.M_ch4, roh_g, self.params.v_ch4, r))
             ode_h2o[i] = (self.diff.get_term(w_h2o, w_h2o_surf, i, D_h2o_eff[i])
                           + self.reaction.get_mass_term(self.params.M_h2o, roh_g, self.params.v_h2o, r))
-            ode_T[i] = self.heat_cond.get_term(T, T_surf, i) + self.reaction.get_heat_term(T[i], r)
+            ode_T[i] = (self.heat_cond.get_term(T, T_surf, i)
+                        + self.reaction.get_heat_term(T[i], r))
             alg_p[i] = (self.params.M_0 * T[i]) / (M * self.params.T_0) * self.params.p_0 - p[i]
 
             D_co2_h2 = self.get_D_i_j(T[i], p[i], self.params.M_co2, self.params.M_h2, self.params.delta_v_co2,
@@ -134,7 +135,7 @@ class Integrator:
             'alg': ca.vertcat(alg_co2, alg_h2, alg_ch4, alg_h2o, alg_T, alg_D_co2, alg_D_h2, alg_D_ch4, alg_D_h2o, alg_p)
         }
 
-        options = {'regularity_check': True,}
+        options = {'regularity_check': True}
         if self.debug:
             options['verbose'] = True
             options['monitor'] = 'daeF'
@@ -164,21 +165,16 @@ class Integrator:
         res_w_h2o = ca.vertcat(res_x[3], res_z[3])
         res_T = ca.vertcat(res_x[4], res_z[4])
         res_p = ca.vertcat(ca.vertcat(*res_z[-self.params.r_steps:]), res_z[-self.params.r_steps:][-1])
+        res_err = 1 - res_w_co2.full() - res_w_h2.full() - res_w_ch4.full() - res_w_h2o.full()
 
-        # plot y_i and T
-        plotter = Plotter()
-        plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_w_co2.full(),
-                     't / s', 'r / mm', r'$w_\mathrm{CO_2}$', r'$\mathrm{CO_2}$', 0, 1)
-        plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_w_h2.full(),
-                     't / s', 'r / mm', r'$w_\mathrm{H_2}$', r'$\mathrm{H_2}$', 0, 1)
-        plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_w_ch4.full(),
-                     't / s', 'r / mm', r'$w_\mathrm{CH_4}$', r'$\mathrm{CH_4}$', 0, 1)
-        plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_w_h2o.full(),
-                     't / s', 'r / mm', r'$w_\mathrm{H_2O}$', r'$\mathrm{H_2O}$', 0, 1)
-        plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1),
-                     1 - res_w_co2.full() - res_w_h2.full() - res_w_ch4.full() - res_w_h2o.full(),
-                     't / s', 'r / mm', r'$w_\mathrm{error}$', r'$\mathrm{Error}$', 0, 1)
-        plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_T.full(),
-                     't / s', 'r / mm', 'T / K', 'Temperature')
-        plotter.plot(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_p.full(),
-                     't / s', 'r / mm', 'p / bar', 'Pressure')
+        # print max error
+        print(f'max error {np.max(res_err)}')
+
+        # create plotter and plot
+        plotter = Plotter(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1),
+                          res_w_co2.full(), res_w_h2.full(), res_w_ch4.full(), res_w_h2o.full(), res_T.full(), res_p.full())
+
+        plotter.plot_w(20, 'Weight composition at t=0.2 s')
+        plotter.plot_3d_all()
+        plotter.plot_hm_all()
+
