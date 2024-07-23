@@ -51,7 +51,6 @@ class Integrator:
         w_co2_surf = ca.SX.sym('w_co2_surf')
         w_ch4_surf = ca.SX.sym('w_ch4_surf')
         w_h2o_surf = ca.SX.sym('w_h20_surf')
-        w_h2_surf = 1 - w_co2_surf - w_ch4_surf - w_h2o_surf
         T_surf = ca.SX.sym('T_surf')
 
         # create alg equations for the surface values
@@ -166,8 +165,8 @@ class Integrator:
         plotter = Plotter(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1),
                           res_w_co2.full(), res_w_h2.full(), res_w_ch4.full(), res_w_h2o.full(), res_T.full(),
                           res_p.full())
-
-        plotter.plot_w(99, 'Weight composition at t=0.2 s')
+        t = 99
+        plotter.plot_w(t, f'Weight composition at t={t / self.params.t_steps * self.params.t_max} s')
         plotter.plot_3d_all()
         # plotter.plot_hm_all()
         # TODO betrags funktion casadi keine negativen werte

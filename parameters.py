@@ -63,4 +63,5 @@ class Parameters:
     h = r_max / r_steps  # [mm]
     T_0 = 525  # [K]
     t_steps = 100
-    t_i = np.linspace(0, 1, t_steps)  # [s]
+    t_max = 3
+    t_i = np.linspace(0, t_max, t_steps)  # [s]
