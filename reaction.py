@@ -124,8 +124,8 @@ class Reaction:
         H_f_h2 = 0 + get_H_h2(T)
         H_f_co2 = -393.5224 + get_H_co2(T)
 
-        return 1000 * (self.params.v_co2 * H_f_co2 + self.params.v_h2 * H_f_h2
-                       + self.params.v_ch4 * H_f_ch4 + self.params.v_h2o * H_f_h2o)  # [J/mol]
+        return 1e3 * (self.params.v_co2 * H_f_co2 + self.params.v_h2 * H_f_h2
+                      + self.params.v_ch4 * H_f_ch4 + self.params.v_h2o * H_f_h2o)  # [J/mol]
 
     def get_K_eq(self, T, p):
         # exp(-delta_R_G/RT)

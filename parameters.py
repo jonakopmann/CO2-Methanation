@@ -35,7 +35,7 @@ class Parameters:
     f_T = 0.7  # [1/s]
 
     # constants
-    p_0 = 1  # [bar]
+    p_0 = 8  # [bar]
     c_p = 880e-3  # [J/(K*g)]
     roh_s = 2350e3  # [g/m^3]
     epsilon = 0.5
@@ -58,9 +58,9 @@ class Parameters:
     delta_H_mix = -10e3  # [J/mol]
 
     # integration params
-    r_steps = 50
-    r_max = 0.6  # [mm]
+    r_steps = 100
+    r_max = 1.5  # [mm]
     h = r_max / r_steps  # [mm]
-    T_0 = 555  # [K]
+    T_0 = 525  # [K]
     t_steps = 100
     t_i = np.linspace(0, 1, t_steps)  # [s]

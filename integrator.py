@@ -167,6 +167,8 @@ class Integrator:
                           res_w_co2.full(), res_w_h2.full(), res_w_ch4.full(), res_w_h2o.full(), res_T.full(),
                           res_p.full())
 
-        plotter.plot_w(20, 'Weight composition at t=0.2 s')
+        plotter.plot_w(99, 'Weight composition at t=0.2 s')
         plotter.plot_3d_all()
-        plotter.plot_hm_all()
+        # plotter.plot_hm_all()
+        # TODO betrags funktion casadi keine negativen werte
+        # TODO: massen strom am surface berechnen
