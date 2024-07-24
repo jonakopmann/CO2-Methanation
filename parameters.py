@@ -78,4 +78,4 @@ class Parameters:
     Nu_lam = 0.664 * (Re ** 0.5) * (Pr ** (3/2))
     Nu_turb = 0.037 * (Re ** 0.8) * Pr / (1 + 2.443 * (Re ** -0.1) * (Pr ** (2/3) - 1))
     Nu = 2 + (Nu_lam ** 2 + Nu_turb ** 2) ** 0.5
-    alpha = Nu * lambda_fl / (2 * r_max)  # [W/(mm^2*K)
+    alpha = Nu * lambda_fl / (2 * r_max)  # [W/(mm^2*K)]
