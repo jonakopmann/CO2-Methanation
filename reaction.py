@@ -152,4 +152,4 @@ class Reaction:
         return ((1 - self.params.epsilon) / self.params.epsilon) * M_i / roh_g * self.params.roh_s * v_i * r
 
     def get_heat_term(self, T, r):
-        return -self.get_H_R(T) / self.params.c_p * (1 - self.params.epsilon) * r
+        return -self.get_H_R(T) / self.params.cp_s * (1 - self.params.epsilon) * r

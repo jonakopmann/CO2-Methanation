@@ -28,4 +28,4 @@ class HeatConduction:
             a = self.get_dr2(T, T_suf, r)
         else:
             a = self.get_dr2(T, T_suf, r) + (self.params.n / (r * self.params.h)) * self.get_dr(T, r)
-        return 1e9 * self.get_lambda() / (self.params.roh_s * self.params.c_p) * a
+        return 1e9 * self.get_lambda() / (self.params.roh_s * self.params.cp_s) * a

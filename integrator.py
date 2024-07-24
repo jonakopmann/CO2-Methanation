@@ -30,7 +30,15 @@ class Integrator:
     def get_D_i_Kn(self, T, M_i):
         return self.params.d_pore / 3 * ca.sqrt(8e3 * self.params.R * T / (ca.pi * M_i))
 
+    def get_beta_i(self, D_i_eff):
+        Sc = self.params.ny_fl / D_i_eff
+        Shu_lam = 0.664 * (self.params.Re ** 0.5) * (Sc ** (3 / 2))
+        Sh_turb = 0.037 * (self.params.Re ** 0.8) * Sc / (1 + 2.443 * (self.params.Re ** -0.1) * (Sc ** (2 / 3) - 1))
+        Sh = 2 + (Shu_lam ** 2 + Sh_turb ** 2) ** 0.5
+        return Sh * D_i_eff / (2 * self.params.r_max)  # [mm/s]
+
     def run(self):
+        a = self.params.lambda_eff / self.params.alpha
         # create sym variables for y_i, T and t
         w_co2 = ca.SX.sym('w_co2', self.params.r_steps)
         w_ch4 = ca.SX.sym('w_ch4', self.params.r_steps)
@@ -49,18 +57,24 @@ class Integrator:
 
         # create surface variables
         w_co2_surf = ca.SX.sym('w_co2_surf')
+        w_co2_fl = ca.SX.sym('w_co2_fl')
         w_ch4_surf = ca.SX.sym('w_ch4_surf')
+        w_ch4_fl = ca.SX.sym('w_ch4_fl')
         w_h2o_surf = ca.SX.sym('w_h20_surf')
+        w_h2o_fl = ca.SX.sym('w_h2o_fl')
         T_surf = ca.SX.sym('T_surf')
+        T_fl = ca.SX.sym('T_fl')
 
         # create alg equations for the surface values
-        alg_co2 = (self.params.w_co2_0
-                   + self.params.delta_y * ca.sin(2 * ca.pi * self.params.f_y * t) - w_co2_surf)
-        alg_ch4 = (self.params.w_ch4_0
-                   + 0 * self.params.delta_y * ca.sin(2 * ca.pi * self.params.f_y * t) - w_ch4_surf)
-        alg_h2o = (self.params.w_h2o_0
-                   + 0 * self.params.delta_y * ca.sin(2 * ca.pi * self.params.f_y * t) - w_h2o_surf)
-        alg_T = self.params.T_0 + self.params.delta_T * ca.sin(2 * ca.pi * self.params.f_T * t) - T_surf
+        alg_co2_fl = (self.params.w_co2_0
+                      + self.params.delta_y * ca.sin(2 * ca.pi * self.params.f_y * t) - w_co2_fl)
+        alg_ch4_fl = (self.params.w_ch4_0
+                      + 0 * self.params.delta_y * ca.sin(2 * ca.pi * self.params.f_y * t) - w_ch4_fl)
+        alg_h2o_fl = (self.params.w_h2o_0
+                      + 0 * self.params.delta_y * ca.sin(2 * ca.pi * self.params.f_y * t) - w_h2o_fl)
+        alg_T_fl = self.params.T_0 + self.params.delta_T * ca.sin(2 * ca.pi * self.params.f_T * t) - T_fl
+
+        alg_T_surf = T_fl - self.params.lambda_eff / self.params.alpha * (T_surf - T[-1]) / self.params.h - T_surf
 
         D_co2_eff = ca.SX.sym('D_co2_eff', self.params.r_steps)
         alg_D_co2 = ca.SX.sym('alg_D_co2', self.params.r_steps)
@@ -68,6 +82,13 @@ class Integrator:
         alg_D_ch4 = ca.SX.sym('alg_D_ch4', self.params.r_steps)
         D_h2o_eff = ca.SX.sym('D_h2o_eff', self.params.r_steps)
         alg_D_h2o = ca.SX.sym('alg_D_h2o', self.params.r_steps)
+
+        alg_co2_surf = (w_co2_fl - (D_co2_eff[-1] / self.get_beta_i(D_co2_eff[-1])).printme(0)
+                        * (w_co2_surf - w_co2[-1]) / self.params.h - w_co2_surf)
+        alg_ch4_surf = (w_ch4_fl - D_ch4_eff[-1] / self.get_beta_i(D_ch4_eff[-1])
+                        * (w_ch4_surf - w_ch4[-1]) / self.params.h - w_ch4_surf)
+        alg_h2o_surf = (w_h2o_fl - D_h2o_eff[-1] / self.get_beta_i(D_h2o_eff[-1])
+                        * (w_h2o_surf - w_h2o[-1]) / self.params.h - w_h2o_surf)
 
         # assign equations to ode for each radius i
         for i in range(self.params.r_steps):
@@ -118,10 +139,11 @@ class Integrator:
         # create integrator
         dae = {
             'x': ca.veccat(w_co2, w_ch4, w_h2o, T),
-            'z': ca.vertcat(w_co2_surf, w_ch4_surf, w_h2o_surf, T_surf, D_co2_eff, D_ch4_eff, D_h2o_eff, p),
+            'z': ca.vertcat(w_co2_surf, w_ch4_surf, w_h2o_surf, T_surf, w_co2_fl, w_ch4_fl, w_h2o_fl, T_fl, D_co2_eff, D_ch4_eff, D_h2o_eff, p),
             't': t,
             'ode': ca.vertcat(ode_co2, ode_ch4, ode_h2o, ode_T),
-            'alg': ca.vertcat(alg_co2, alg_ch4, alg_h2o, alg_T, alg_D_co2, alg_D_ch4, alg_D_h2o, alg_p)
+            'alg': ca.vertcat(alg_co2_fl, alg_ch4_fl, alg_h2o_fl, alg_T_surf, alg_co2_surf, alg_ch4_surf, alg_h2o_surf, alg_T_fl, alg_D_co2, alg_D_ch4, alg_D_h2o,
+                              alg_p)
         }
 
         options = {'regularity_check': True}
@@ -133,14 +155,13 @@ class Integrator:
 
         # create initial values
         w_co2_0 = np.full(self.params.r_steps, self.params.w_co2_0)
-        w_h2_0 = np.full(self.params.r_steps, self.params.w_h2_0)
         w_ch4_0 = np.full(self.params.r_steps, self.params.w_ch4_0)
         w_h2o_0 = np.full(self.params.r_steps, self.params.w_h2o_0)
         T_0 = np.full(self.params.r_steps, self.params.T_0)
         x0 = ca.vertcat(w_co2_0, w_ch4_0, w_h2o_0, T_0)
 
         z0 = ca.vertcat(self.params.w_co2_0, self.params.w_ch4_0, self.params.w_h2o_0,
-                        self.params.T_0, np.full(self.params.r_steps, 1),
+                        self.params.T_0, self.params.w_co2_0, self.params.w_ch4_0, self.params.w_h2o_0, self.params.T_0, np.full(self.params.r_steps, 1),
                         np.full(self.params.r_steps, 1), np.full(self.params.r_steps, 1),
                         np.full(self.params.r_steps, 1))
 
@@ -169,5 +190,3 @@ class Integrator:
         plotter.plot_w(t, f'Weight composition at t={t / self.params.t_steps * self.params.t_max} s')
         plotter.plot_3d_all()
         # plotter.plot_hm_all()
-        # TODO betrags funktion casadi keine negativen werte
-        # TODO: massen strom am surface berechnen

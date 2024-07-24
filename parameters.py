@@ -30,13 +30,13 @@ class Parameters:
 
     # dynamic const
     delta_y = 0.05
-    delta_T = 0
+    delta_T = 0.5
     f_y = 2  # [1/s]
     f_T = 0.7  # [1/s]
 
     # constants
     p_0 = 8  # [bar]
-    c_p = 880e-3  # [J/(K*g)]
+    cp_s = 880e-3  # [J/(K*g)]
     roh_s = 2350e3  # [g/m^3]
     epsilon = 0.5
     tau = 4
@@ -63,5 +63,19 @@ class Parameters:
     h = r_max / r_steps  # [mm]
     T_0 = 525  # [K]
     t_steps = 100
-    t_max = 3
+    t_max = 2
     t_i = np.linspace(0, t_max, t_steps)  # [s]
+
+    # heat transfer
+    roh_fl = 0.7359e3  # [g/m^3]
+    cp_fl = 1.025  # [J/(g*K)]
+    ny_fl = 35.39  # [mm^2/s]
+    v = 100  # [mm/s]
+    lambda_fl = 38.35e-3  # [W/(mm*K)]
+
+    Re = v * r_max * 2 / (ny_fl * epsilon)
+    Pr = ny_fl / lambda_fl * cp_fl * roh_fl * 1e-9
+    Nu_lam = 0.664 * (Re ** 0.5) * (Pr ** (3/2))
+    Nu_turb = 0.037 * (Re ** 0.8) * Pr / (1 + 2.443 * (Re ** -0.1) * (Pr ** (2/3) - 1))
+    Nu = 2 + (Nu_lam ** 2 + Nu_turb ** 2) ** 0.5
+    alpha = Nu * lambda_fl / (2 * r_max)  # [W/(mm^2*K)
