@@ -70,7 +70,7 @@ class Plotter:
 
         fig.show()
 
-    def animate(self, file, title, length):
+    def animate_w(self, file, title, length):
         # create figure
         fig = plt.figure()
         ax = fig.add_subplot()
@@ -95,6 +95,29 @@ class Plotter:
             line_h2.set_ydata(self.w_h2[:, t])
             line_ch4.set_ydata(self.w_ch4[:, t])
             line_h2o.set_ydata(self.w_h2o[:, t])
+
+        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t), interval=length * 10)
+        ani.save(file)
+
+    def animate_T(self, file, title, length):
+        # create figure
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        # set limits for x and y axis (r and w)
+        ax.set_xlim(min(self.r), max(self.r))
+        ax.set_ylim(np.min(self.T), np.max(self.T))
+
+        line, = ax.plot(self.r, self.T[:, 0])
+
+        # set title
+        ax.set_title(title)
+        ax.set_xlabel('r / mm')
+        ax.set_ylabel('T / K')
+        # ax.legend(loc='upper left')
+
+        def anim(t):
+            line.set_ydata(self.T[:, t])
 
         ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t), interval=length * 10)
         ani.save(file)

@@ -30,8 +30,8 @@ class Parameters:
     M_0 = (w_co2_0 / M_co2 + w_h2_0 / M_h2 + w_ch4_0 / M_ch4 + w_h2o_0 / M_h2o) ** -1  # [g/mol]
 
     # dynamic const
-    delta_y = 0.1
-    delta_T = 2
+    delta_y = 0.05
+    delta_T = 1
     f_y = 1  # [1/s]
     f_T = 0.7  # [1/s]
 
@@ -63,7 +63,7 @@ class Parameters:
     h = r_max / r_steps  # [mm]
     T_0 = 525  # [K]
     t_steps = 100
-    t_max = 2
+    t_max = 5
     t_i = np.linspace(0, t_max, t_steps)  # [s]
 
     # heat transfer
