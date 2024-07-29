@@ -67,10 +67,11 @@ class Plotter:
         ax.set_xlabel('r / mm')
         ax.set_ylabel(r'$w_\mathrm{i}$')
         ax.legend()
+        ax.grid()
 
         fig.show()
 
-    def animate_w(self, file, title, length):
+    def animate_w(self, file, title, scale=1.0):
         # create figure
         fig = plt.figure()
         ax = fig.add_subplot()
@@ -84,22 +85,27 @@ class Plotter:
         line_ch4, = ax.plot(self.r, self.w_ch4[:, 0], label=r'$w_\mathrm{CH_4}$')
         line_h2o, = ax.plot(self.r, self.w_h2o[:, 0], label=r'$w_\mathrm{H_2O}$')
 
+        # add a text element to display the time
+        time_text = ax.text(0.2, 0.9, 't = {:.2f}'.format(self.t[0]), transform=ax.transAxes)
+
         # set title
         ax.set_title(title)
         ax.set_xlabel('r / mm')
         ax.set_ylabel(r'$w_\mathrm{i}$')
         ax.legend(loc='upper left')
+        ax.grid()
 
         def anim(t):
             line_co2.set_ydata(self.w_co2[:, t])
             line_h2.set_ydata(self.w_h2[:, t])
             line_ch4.set_ydata(self.w_ch4[:, t])
             line_h2o.set_ydata(self.w_h2o[:, t])
+            time_text.set_text('t = {:.2f}'.format(self.t[t]))  # update the time text
 
-        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t), interval=length * 10)
+        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t), interval=(max(self.t) * 10 * scale))
         ani.save(file)
 
-    def animate_T(self, file, title, length):
+    def animate_T(self, file, title, scale=1.0):
         # create figure
         fig = plt.figure()
         ax = fig.add_subplot()
@@ -110,16 +116,22 @@ class Plotter:
 
         line, = ax.plot(self.r, self.T[:, 0])
 
+        # add a text element to display the time
+        time_text = ax.text(0.05, 0.9, 't = {:.2f}'.format(self.t[0]), transform=ax.transAxes)
+
         # set title
         ax.set_title(title)
         ax.set_xlabel('r / mm')
         ax.set_ylabel('T / K')
+        ax.grid()
+
         # ax.legend(loc='upper left')
 
         def anim(t):
             line.set_ydata(self.T[:, t])
+            time_text.set_text('t = {:.2f}'.format(self.t[t]))  # update the time text
 
-        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t), interval=length * 10)
+        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t), interval=(max(self.t) * 10 * scale))
         ani.save(file)
 
     def plot_3d(self, Z, label, title, zmin=None, zmax=None):

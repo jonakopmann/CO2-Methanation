@@ -28,7 +28,7 @@ class Integrator:
         return self.params.d_pore / 3 * ca.sqrt(8e3 * self.params.R * T / (ca.pi * M_i))
 
     def run(self):
-        slices = 2
+        slices = 4
         step_size = self.params.t_steps / slices
         res_final = {'xf': [], 'zf': []}
         for k in range(slices):
@@ -121,7 +121,7 @@ class Integrator:
                                  * (1 / self.get_D_i_m(y_h2o, y_h2, y_co2, y_ch4, D_h2_h2o, D_co2_h2o, D_ch4_h2o)
                                     + 1e-6 / self.get_D_i_Kn(T[i], self.params.M_h2o)) ** -1) - D_h2o_eff[i])
 
-            if k == 0:
+            if k & 1 == 0:
                 alg_co2_fl = (self.params.w_co2_0 - self.params.delta_y - w_co2_fl)
                 alg_T_fl = self.params.T_0 + self.params.delta_T - T_fl
             else:
@@ -196,6 +196,6 @@ class Integrator:
         idx_t = self.params.t_steps - 1
         plotter.plot_w(idx_t, f'Weight composition at t={idx_t / (self.params.t_steps - 1) * self.params.t_max:.2f} s')
         # plotter.plot_3d_all()
-        plotter.plot_hm_all()
-        plotter.animate_w('step_w.mp4', 'Mass fractions over time', 10)
-        plotter.animate_T('step_t.mp4', 'Temperature over time', 10)
+        # plotter.plot_hm_all()
+        plotter.animate_w('step_w.mp4', 'Mass fractions over time', 5)
+        plotter.animate_T('step_t.mp4', 'Temperature over time', 5)
