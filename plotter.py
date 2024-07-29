@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from cmcrameri import cm
+from matplotlib import animation
 
 
 class Plotter:
@@ -69,6 +70,35 @@ class Plotter:
 
         fig.show()
 
+    def animate(self, file, title, length):
+        # create figure
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        # set limits for x and y axis (r and w)
+        ax.set_xlim(min(self.r), max(self.r))
+        ax.set_ylim(0, 1)
+
+        line_co2, = ax.plot(self.r, self.w_co2[:, 0], label=r'$w_\mathrm{CO_2}$')
+        line_h2, = ax.plot(self.r, self.w_h2[:, 0], label=r'$w_\mathrm{H_2}$')
+        line_ch4, = ax.plot(self.r, self.w_ch4[:, 0], label=r'$w_\mathrm{CH_4}$')
+        line_h2o, = ax.plot(self.r, self.w_h2o[:, 0], label=r'$w_\mathrm{H_2O}$')
+
+        # set title
+        ax.set_title(title)
+        ax.set_xlabel('r / mm')
+        ax.set_ylabel(r'$w_\mathrm{i}$')
+        ax.legend(loc='upper left')
+
+        def anim(t):
+            line_co2.set_ydata(self.w_co2[:, t])
+            line_h2.set_ydata(self.w_h2[:, t])
+            line_ch4.set_ydata(self.w_ch4[:, t])
+            line_h2o.set_ydata(self.w_h2o[:, t])
+
+        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t), interval=length * 10)
+        ani.save(file)
+
     def plot_3d(self, Z, label, title, zmin=None, zmax=None):
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
@@ -108,7 +138,7 @@ class Plotter:
 
         # create meshgrid and plot
         X, Y = np.meshgrid(self.t, self.r)
-        hm = ax.pcolor(X, Y, Z, cmap=self.cmap)
+        hm = ax.pcolor(X, Y, Z, cmap=self.cmap, vmin=zmin, vmax=zmax)
 
         # set title and labels
         ax.set_title(title)

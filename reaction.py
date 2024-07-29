@@ -1,98 +1,5 @@
-import casadi as ca
-
 from parameters import Parameters
-
-
-def get_H_co2(T):
-    t = T / 1000
-    A = 24.99735
-    B = 55.18696
-    C = -33.69137
-    D = 7.948387
-    E = -0.136638
-    F = -403.6075
-    H = -393.5224
-    return A * t + B * t ** 2 / 2 + C * t ** 3 / 3 + D * t ** 4 / 4 - E / t + F - H
-
-
-def get_H_h2(T):
-    t = T / 1000
-    A = 33.066178
-    B = -11.363417
-    C = 11.432816
-    D = -2.772874
-    E = -0.158558
-    F = -9.980797
-    H = 0.0
-    return A * t + B * t ** 2 / 2 + C * t ** 3 / 3 + D * t ** 4 / 4 - E / t + F - H
-
-
-def get_H_ch4(T):
-    t = T / 1000
-    A = -0.703029
-    B = 108.4773
-    C = -42.52157
-    D = 5.862788
-    E = 0.678565
-    F = -76.84376
-    H = -74.87310
-    return A * t + B * t ** 2 / 2 + C * t ** 3 / 3 + D * t ** 4 / 4 - E / t + F - H
-
-
-def get_H_h20(T):
-    t = T / 1000
-    A = 30.09200
-    B = 6.832514
-    C = 6.793435
-    D = -2.534480
-    E = 0.082139
-    F = -250.8810
-    H = -241.8264
-    return A * t + B * t ** 2 / 2 + C * t ** 3 / 3 + D * t ** 4 / 4 - E / t + F - H
-
-
-def get_S_h2(T):
-    t = T / 1000
-    A = 33.066178
-    B = -11.363417
-    C = 11.432816
-    D = -2.772874
-    E = -0.158558
-    G = 172.707974
-    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2) + G
-
-
-def get_S_co2(T):
-    t = T / 1000
-    A = 24.99735
-    B = 55.18696
-    C = -33.69137
-    D = 7.948387
-    E = -0.136638
-    G = 228.2431
-    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2) + G
-
-
-def get_S_ch4(T):
-    t = T / 1000
-    A = -0.703029
-    B = 108.4773
-    C = -42.5215
-    D = 5.862788
-    E = 0.678565
-    G = 158.7163
-    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2) + G
-
-
-def get_S_h20(T):
-    t = T / 1000
-    A = 30.09200
-    B = 6.832514
-    C = 6.793435
-    D = -2.534480
-    E = 0.082139
-    G = 223.3967
-    return A * ca.log(t) + B * t + (C / 2) * t ** 2 + (D / 3) * t ** 3 - E / (2 * t ** 2) + G
+from thermo import *
 
 
 class Reaction:
@@ -119,7 +26,7 @@ class Reaction:
                 * ca.exp(self.params.delta_H_mix / self.params.R * ((1 / self.params.T_ref) - (1 / T))))
 
     def get_H_R(self, T):
-        H_f_h2o = -241.8264 + get_H_h20(T)
+        H_f_h2o = -241.8264 + get_H_h2o(T)
         H_f_ch4 = -74.87310 + get_H_ch4(T)
         H_f_h2 = 0 + get_H_h2(T)
         H_f_co2 = -393.5224 + get_H_co2(T)
@@ -130,7 +37,7 @@ class Reaction:
     def get_K_eq(self, T, p):
         # exp(-delta_R_G/RT)
         S = (self.params.v_co2 * (get_S_co2(T)) + self.params.v_h2 * (get_S_h2(T))
-             + self.params.v_ch4 * (get_S_ch4(T)) + self.params.v_h2o * (get_S_h20(T)))  # [J/(mol*K)]
+             + self.params.v_ch4 * (get_S_ch4(T)) + self.params.v_h2o * (get_S_h2o(T)))  # [J/(mol*K)]
         G = self.get_H_R(T) - T * S  # [J/mol]
         return ca.exp(-G / (self.params.R * T)) * p ** -2
 

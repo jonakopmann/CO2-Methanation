@@ -5,11 +5,8 @@ from heat_conduction import HeatConduction
 from parameters import Parameters
 from plotter import Plotter
 from reaction import Reaction
+from thermo import w_to_y
 import casadi as ca
-
-
-def w_to_y(w_i, M_i, M):
-    return w_i * M / M_i
 
 
 class Integrator:
@@ -30,15 +27,7 @@ class Integrator:
     def get_D_i_Kn(self, T, M_i):
         return self.params.d_pore / 3 * ca.sqrt(8e3 * self.params.R * T / (ca.pi * M_i))
 
-    def get_beta_i(self, D_i_eff):
-        Sc = self.params.ny_fl / D_i_eff
-        Shu_lam = 0.664 * (self.params.Re ** 0.5) * (Sc ** (3 / 2))
-        Sh_turb = 0.037 * (self.params.Re ** 0.8) * Sc / (1 + 2.443 * (self.params.Re ** -0.1) * (Sc ** (2 / 3) - 1))
-        Sh = 2 + (Shu_lam ** 2 + Sh_turb ** 2) ** 0.5
-        return Sh * D_i_eff / (2 * self.params.r_max)  # [mm/s]
-
     def run(self):
-        a = self.params.lambda_eff / self.params.alpha
         # create sym variables for y_i, T and t
         w_co2 = ca.SX.sym('w_co2', self.params.r_steps)
         w_ch4 = ca.SX.sym('w_ch4', self.params.r_steps)
@@ -83,11 +72,11 @@ class Integrator:
         D_h2o_eff = ca.SX.sym('D_h2o_eff', self.params.r_steps)
         alg_D_h2o = ca.SX.sym('alg_D_h2o', self.params.r_steps)
 
-        alg_co2_surf = (w_co2_fl - (D_co2_eff[-1] / self.get_beta_i(D_co2_eff[-1])).printme(0)
+        alg_co2_surf = (w_co2_fl - D_co2_eff[-1] / self.params.get_beta_i(D_co2_eff[-1])
                         * (w_co2_surf - w_co2[-1]) / self.params.h - w_co2_surf)
-        alg_ch4_surf = (w_ch4_fl - D_ch4_eff[-1] / self.get_beta_i(D_ch4_eff[-1])
+        alg_ch4_surf = (w_ch4_fl - D_ch4_eff[-1] / self.params.get_beta_i(D_ch4_eff[-1])
                         * (w_ch4_surf - w_ch4[-1]) / self.params.h - w_ch4_surf)
-        alg_h2o_surf = (w_h2o_fl - D_h2o_eff[-1] / self.get_beta_i(D_h2o_eff[-1])
+        alg_h2o_surf = (w_h2o_fl - D_h2o_eff[-1] / self.params.get_beta_i(D_h2o_eff[-1])
                         * (w_h2o_surf - w_h2o[-1]) / self.params.h - w_h2o_surf)
 
         # assign equations to ode for each radius i
@@ -161,9 +150,9 @@ class Integrator:
         x0 = ca.vertcat(w_co2_0, w_ch4_0, w_h2o_0, T_0)
 
         z0 = ca.vertcat(self.params.w_co2_0, self.params.w_ch4_0, self.params.w_h2o_0,
-                        self.params.T_0, self.params.w_co2_0, self.params.w_ch4_0, self.params.w_h2o_0, self.params.T_0, np.full(self.params.r_steps, 1),
+                        self.params.T_0, self.params.w_co2_0, self.params.w_ch4_0, self.params.w_h2o_0, self.params.T_0,
                         np.full(self.params.r_steps, 1), np.full(self.params.r_steps, 1),
-                        np.full(self.params.r_steps, 1))
+                        np.full(self.params.r_steps, 1), np.full(self.params.r_steps, 1))
 
         # integrate
         res = integrator(x0=x0, z0=z0)
@@ -186,7 +175,8 @@ class Integrator:
         plotter = Plotter(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1),
                           res_w_co2.full(), res_w_h2.full(), res_w_ch4.full(), res_w_h2o.full(), res_T.full(),
                           res_p.full())
-        t = 99
-        plotter.plot_w(t, f'Weight composition at t={t / self.params.t_steps * self.params.t_max} s')
-        plotter.plot_3d_all()
-        # plotter.plot_hm_all()
+        idx_t = self.params.t_steps - 1
+        plotter.plot_w(idx_t, f'Weight composition at t={idx_t / (self.params.t_steps - 1) * self.params.t_max:.2f} s')
+        # plotter.plot_3d_all()
+        plotter.plot_hm_all()
+        plotter.animate('t_2.gif', 'Test', 10)
