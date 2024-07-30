@@ -3,6 +3,8 @@ import numpy as np
 from cmcrameri import cm
 from matplotlib import animation
 
+from thermo import w_to_y
+
 
 class Plotter:
     def __init__(self, t, r, w_co2, w_h2, w_ch4, w_h2o, T, p):
@@ -102,7 +104,8 @@ class Plotter:
             line_h2o.set_ydata(self.w_h2o[:, t])
             time_text.set_text('t = {:.2f}'.format(self.t[t]))  # update the time text
 
-        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t), interval=(max(self.t) * 10 * scale))
+        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t),
+                                      interval=max(self.t) / len(self.t) * 1000 * scale)
         ani.save(file)
 
     def animate_T(self, file, title, scale=1.0):
@@ -131,7 +134,8 @@ class Plotter:
             line.set_ydata(self.T[:, t])
             time_text.set_text('t = {:.2f}'.format(self.t[t]))  # update the time text
 
-        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t), interval=(max(self.t) * 10 * scale))
+        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t),
+                                      interval=max(self.t) / len(self.t) * 1000 * scale)
         ani.save(file)
 
     def plot_3d(self, Z, label, title, zmin=None, zmax=None):
@@ -191,3 +195,34 @@ class Plotter:
         self.plot_hm(self.w_h2, r'$w_\mathrm{H_2}$', r'$\mathrm{H_2}$', 0, 1)
         self.plot_hm(self.w_ch4, r'$w_\mathrm{CH_4}$', r'$\mathrm{CH_4}$', 0, 1)
         self.plot_hm(self.w_h2o, r'$w_\mathrm{H_2O}$', r'$\mathrm{H_2O}$', 0, 1)
+
+    def plot_y(self, title, t):
+        # create figure
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        # set limits for x and y axis (r and w)
+        ax.set_xlim(min(self.r), max(self.r))
+        ax.set_ylim(0, 1)
+
+        M_co2 = 44.0095  # [g/mol]
+        M_h2 = 2.01588  # [g/mol]
+        M_ch4 = 16.0425  # [g/mol]
+        M_h2o = 18.0153  # [g/mol]
+
+        M = (self.w_co2[:, t] / M_co2 + self.w_h2[:, t] / M_h2
+             + self.w_ch4[:, t] / M_ch4 + self.w_h2o[:, t] / M_h2o) ** -1
+
+        ax.plot(self.r, w_to_y(self.w_co2[:, t], M_co2, M), label=r'$y_\mathrm{CO_2}$')
+        ax.plot(self.r, w_to_y(self.w_h2[:, t], M_h2, M), label=r'$y_\mathrm{H_2}$')
+        ax.plot(self.r, w_to_y(self.w_ch4[:, t], M_ch4, M), label=r'$y_\mathrm{CH_4}$')
+        ax.plot(self.r, w_to_y(self.w_h2o[:, t], M_h2o, M), label=r'$y_\mathrm{H_2O}$')
+
+        # set title
+        ax.set_title(title)
+        ax.set_xlabel('r / mm')
+        ax.set_ylabel(r'$y_\mathrm{i}$')
+        ax.legend()
+        ax.grid()
+
+        fig.show()
