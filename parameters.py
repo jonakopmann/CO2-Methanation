@@ -5,8 +5,8 @@ from thermo import *
 
 class Parameters:
     # start mass fractions
-    w_h2_0 = 0.154850247
-    w_co2_0 = 0.845149753
+    w_h2_0 = 0.15
+    w_co2_0 = 0.85
     w_ch4_0 = 0
     w_h2o_0 = 0
 
@@ -32,7 +32,7 @@ class Parameters:
     # dynamic const
     delta_y = 0
     delta_T = 0
-    f_y = 3  # [1/s]
+    f_y = 1  # [1/s]
     f_T = 0.7  # [1/s]
 
     # constants
@@ -61,9 +61,9 @@ class Parameters:
     r_steps = 100
     r_max = 1.5  # [mm]
     h = r_max / r_steps  # [mm]
-    T_0 = 525  # [K]
+    T_0 = 520  # [K]
     t_steps = 100
-    t_max = 15
+    t_max = 30
     t_i = np.linspace(0, t_max, t_steps)  # [s]
 
     # heat transfer
@@ -78,8 +78,8 @@ class Parameters:
 
     Re = v * r_max * 2 / (ny_fl * epsilon)
     Pr = ny_fl / lambda_fl * cp_fl * roh_fl * 1e-9
-    Nu_lam = 0.664 * (Re ** 0.5) * (Pr ** (3 / 2))
-    Nu_turb = 0.037 * (Re ** 0.8) * Pr / (1 + 2.443 * (Re ** -0.1) * (Pr ** (2 / 3) - 1))
+    Nu_lam = 0.664 * (Re ** 0.5) * (Pr ** (3/2))
+    Nu_turb = 0.037 * (Re ** 0.8) * Pr / (1 + 2.443 * (Re ** -0.1) * (Pr ** (2/3) - 1))
     Nu = 2 + (Nu_lam ** 2 + Nu_turb ** 2) ** 0.5
     alpha = Nu * lambda_fl / (2 * r_max)  # [W/(mm^2*K)]
 

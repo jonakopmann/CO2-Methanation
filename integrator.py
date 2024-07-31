@@ -197,11 +197,11 @@ class Integrator:
                           res_p.full())
         idx_t = self.params.t_steps - 1
         #plotter.plot_w(idx_t, f'Weight composition at t={idx_t / (self.params.t_steps - 1) * self.params.t_max:.2f} s')
-        plotter.plot_3d_all()
+        # plotter.plot_3d_all()
         # plotter.plot_hm_all()
         #plotter.plot_y("Test", idx_t)
 
-        plotter.animate_w(f'plots/w_f-{self.params.f_y}_delta-{self.params.delta_y}_t-{self.params.t_max}.mp4',
+        plotter.animate_w(f'plots/2-w_f-{self.params.f_y}_delta-{self.params.delta_y}_t-{self.params.t_max}.mp4',
                           'Mass fractions over time', 2)
-        plotter.animate_T(f'plots/T_f-{self.params.f_y}_delta-{self.params.delta_T}_t-{self.params.t_max}.mp4',
+        plotter.animate_T(f'plots/2-T_f-{self.params.f_y}_delta-{self.params.delta_T}_t-{self.params.t_max}.mp4',
                           'Temperature over time', 2)

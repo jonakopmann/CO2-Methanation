@@ -115,7 +115,9 @@ class Plotter:
 
         # set limits for x and y axis (r and w)
         ax.set_xlim(min(self.r), max(self.r))
-        ax.set_ylim(np.min(self.T), np.max(self.T))
+        min_T = np.min(self.T)
+        max_T = np.max(self.T)
+        ax.set_ylim(min_T - 0.05 * (max_T - min_T), max_T + 0.05 * (max_T - min_T))
 
         line, = ax.plot(self.r, self.T[:, 0])
 
