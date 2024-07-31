@@ -175,8 +175,10 @@ class Integrator:
         plotter = Plotter(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1),
                           res_w_co2.full(), res_w_h2.full(), res_w_ch4.full(), res_w_h2o.full(), res_T.full(),
                           res_p.full())
-        idx_t = self.params.t_steps - 1
-        plotter.plot_w(idx_t, f'Weight composition at t={idx_t / (self.params.t_steps - 1) * self.params.t_max:.2f} s')
-        # plotter.plot_3d_all()
-        plotter.plot_hm_all()
-        plotter.animate('t_2.gif', 'Test', 10)
+
+        #plotter.plot_3d_all()
+
+        plotter.animate_w(f'plots/w_f-{self.params.f_y}_delta-{self.params.delta_y}_t-{self.params.t_max}.mp4',
+                          'Mass fractions over time', 2)
+        plotter.animate_T(f'plots/T_f-{self.params.f_y}_delta-{self.params.delta_T}_t-{self.params.t_max}.mp4',
+                          'Temperature over time', 2)
