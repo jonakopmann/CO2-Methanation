@@ -1,6 +1,6 @@
 import numpy as np
 
-from thermo import get_cp_co2, get_cp_h2, get_cp_ch4, get_cp_h2o, w_to_y
+from thermo import *
 
 
 class Parameters:
@@ -16,7 +16,7 @@ class Parameters:
     v_ch4 = 1
     v_h2o = 2
 
-    # diffusion volumes from fuller et al. 1969
+    # diffusion volumes from Fuller et al. 1969
     delta_v_h2 = 6.12  # [cm^3]
     delta_v_co2 = 26.7  # [cm^3]
     delta_v_ch4 = 25.14  # [cm^3]
@@ -30,8 +30,8 @@ class Parameters:
     M_0 = (w_co2_0 / M_co2 + w_h2_0 / M_h2 + w_ch4_0 / M_ch4 + w_h2o_0 / M_h2o) ** -1  # [g/mol]
 
     # dynamic const
-    delta_y = 0.05
-    delta_T = 1
+    delta_w = 0.1
+    delta_T = 2
     f_y = 1  # [1/s]
     f_T = 0.7  # [1/s]
 
@@ -61,9 +61,9 @@ class Parameters:
     r_steps = 100
     r_max = 1.5  # [mm]
     h = r_max / r_steps  # [mm]
-    T_0 = 525  # [K]
-    t_steps = 100
-    t_max = 2
+    T_0 = 520  # [K]
+    t_steps = 200
+    t_max = 15
     t_i = np.linspace(0, t_max, t_steps)  # [s]
 
     # heat transfer
@@ -71,10 +71,10 @@ class Parameters:
     roh_fl = p_0 * 1e5 * M_0 / (R * T_0)  # [g/m^3]
     cp_fl = (w_co2_0 * get_cp_co2(T_0) + w_h2_0 * get_cp_h2(T_0)
              + w_ch4_0 * get_cp_ch4(T_0) + w_h2o_0 * get_cp_h2o(T_0))  # [J/(g*K)]
-    ny_fl = (w_to_y(w_co2_0, M_co2, M_0) * 3.089273373 + w_to_y(w_h2_0, M_h2, M_0) * 35.775756753
-             + w_to_y(w_ch4_0, M_ch4, M_0) * 5.991630091 + w_to_y(w_h2o_0, M_h2o, M_0) * 5.351623444)  # [mm^2/s]
-    lambda_fl = (w_to_y(w_co2_0, M_co2, M_0) * 0.035174e-3 + w_to_y(w_h2_0, M_h2, M_0) * 0.28130e-3
-                 + w_to_y(w_ch4_0, M_ch4, M_0) * 0.073480e-3 + w_to_y(w_h2o_0, M_h2o, M_0) * 0.040140e-3)  # [W/(mm*K)]
+    ny_fl = (w_to_y(w_co2_0, M_co2, M_0) * get_ny_co2(T_0, p_0) + w_to_y(w_h2_0, M_h2, M_0) * get_ny_h2(T_0, p_0)
+             + w_to_y(w_ch4_0, M_ch4, M_0) * get_ny_ch4(T_0, p_0) + w_to_y(w_h2o_0, M_h2o, M_0) * get_ny_h2o(T_0, p_0))  # [mm^2/s]
+    lambda_fl = (w_to_y(w_co2_0, M_co2, M_0) * get_lambda_co2(T_0) + w_to_y(w_h2_0, M_h2, M_0) * get_lambda_h2(T_0)
+                 + w_to_y(w_ch4_0, M_ch4, M_0) * get_lambda_ch4(T_0) + w_to_y(w_h2o_0, M_h2o, M_0) * get_lambda_h2o(T_0))  # [W/(mm*K)]
 
     Re = v * r_max * 2 / (ny_fl * epsilon)
     Pr = ny_fl / lambda_fl * cp_fl * roh_fl * 1e-9
