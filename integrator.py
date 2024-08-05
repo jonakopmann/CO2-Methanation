@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 
 from diffusion import Diffusion
@@ -59,6 +61,8 @@ class Integrator:
             w_h2_fl = ca.SX.sym('w_h2_fl')
             T_surf = ca.SX.sym('T_surf')
             T_fl = ca.SX.sym('T_fl')
+            w_h2o_surf = 1 - w_co2_surf - w_h2_surf - w_ch4_surf
+            w_h2o_fl = 1 - w_co2_fl - w_h2_fl - w_ch4_fl
 
             # create alg equations for the surface values
             alg_T_surf = T_fl - self.params.lambda_eff / self.params.alpha * (T_surf - T[-1]) / self.params.h - T_surf
@@ -70,12 +74,29 @@ class Integrator:
             D_h2_eff = ca.SX.sym('D_h2_eff', self.params.r_steps)
             alg_D_h2 = ca.SX.sym('alg_D_h2', self.params.r_steps)
 
-            alg_co2_surf = (w_co2_fl - D_co2_eff[-1] / self.params.get_beta_i(D_co2_eff[-1])
-                            * (w_co2_surf - w_co2[-1]) / self.params.h - w_co2_surf)
-            alg_ch4_surf = (w_ch4_fl - D_ch4_eff[-1] / self.params.get_beta_i(D_ch4_eff[-1])
-                            * (w_ch4_surf - w_ch4[-1]) / self.params.h - w_ch4_surf)
-            alg_h2_surf = (w_h2_fl - D_h2_eff[-1] / self.params.get_beta_i(D_h2_eff[-1])
-                           * (w_h2_surf - w_h2[-1]) / self.params.h - w_h2_surf)
+            M_fl = (w_co2_fl / self.params.M_co2 + w_h2_fl / self.params.M_h2
+                    + w_ch4_fl / self.params.M_ch4 + w_h2o_fl / self.params.M_h2o) ** -1
+            M_surf = (w_co2_surf / self.params.M_co2 + w_h2_surf / self.params.M_h2
+                      + w_ch4_surf / self.params.M_ch4 + w_h2o_surf / self.params.M_h2o) ** -1
+            M_1 = (w_co2[-1] / self.params.M_co2 + w_h2[-1] / self.params.M_h2
+                   + w_ch4[-1] / self.params.M_ch4 + w_h2o[-1] / self.params.M_h2o) ** -1
+
+            roh_fl = p[-1] * 1e5 * M_fl / (self.params.R * T_fl)
+            roh_surf = p[-1] * 1e5 * M_surf / (self.params.R * T_surf)
+            roh_1 = p[-1] * 1e5 * M_1 / (self.params.R * T[-1])
+
+            alg_co2_surf = (w_co2_fl * roh_fl / self.params.M_co2
+                            - D_co2_eff[-1] / self.params.get_beta_i(D_co2_eff[-1])
+                            * (w_co2_surf * roh_surf / self.params.M_co2 - w_co2[-1] * roh_1 / self.params.M_co2)
+                            / self.params.h - w_co2_surf * roh_surf / self.params.M_co2)
+            alg_ch4_surf = (w_ch4_fl * roh_fl / self.params.M_ch4
+                            - D_ch4_eff[-1] / self.params.get_beta_i(D_ch4_eff[-1])
+                            * (w_ch4_surf * roh_surf / self.params.M_ch4 - w_ch4[-1] * roh_1 / self.params.M_ch4)
+                            / self.params.h - w_ch4_surf * roh_surf / self.params.M_ch4)
+            alg_h2_surf = (w_h2_fl * roh_fl / self.params.M_h2
+                           - D_h2_eff[-1] / self.params.get_beta_i(D_h2_eff[-1])
+                           * (w_h2_surf * roh_surf / self.params.M_h2 - w_h2[-1] * roh_1 / self.params.M_h2)
+                           / self.params.h - w_h2_surf * roh_surf / self.params.M_h2)
 
             # assign equations to ode for each radius i
             for i in range(self.params.r_steps):
@@ -124,15 +145,15 @@ class Integrator:
                                    + 1e-6 / self.get_D_i_Kn(T[i], self.params.M_h2)) ** -1) - D_h2_eff[i])
 
             if k & 1 == 0:
-                alg_co2_fl = (self.params.w_co2_0 + self.params.delta_y - w_co2_fl)
-                alg_h2_fl = (self.params.w_h2_0 - self.params.delta_y - w_h2_fl)
+                alg_co2_fl = (self.params.w_co2_0 + self.params.delta_w - w_co2_fl)
+                alg_h2_fl = (self.params.w_h2_0 - self.params.delta_w - w_h2_fl)
                 alg_T_fl = self.params.T_0 + self.params.delta_T - T_fl
             else:
-                alg_co2_fl = (self.params.w_co2_0 - self.params.delta_y - w_co2_fl)
-                alg_h2_fl = (self.params.w_h2_0 + self.params.delta_y - w_h2_fl)
+                alg_co2_fl = (self.params.w_co2_0 - self.params.delta_w - w_co2_fl)
+                alg_h2_fl = (self.params.w_h2_0 + self.params.delta_w - w_h2_fl)
                 alg_T_fl = self.params.T_0 - self.params.delta_T - T_fl
             alg_ch4_fl = (self.params.w_ch4_0
-                          + 0 * self.params.delta_y * ca.sin(2 * ca.pi * self.params.f_y * t) - w_ch4_fl)
+                          + 0 * self.params.delta_w * ca.sin(2 * ca.pi * self.params.f_y * t) - w_ch4_fl)
 
             # create integrator
             dae = {
@@ -195,13 +216,9 @@ class Integrator:
         plotter = Plotter(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1),
                           res_w_co2.full(), res_w_h2.full(), res_w_ch4.full(), res_w_h2o.full(), res_T.full(),
                           res_p.full())
-        idx_t = self.params.t_steps - 1
-        #plotter.plot_w(idx_t, f'Weight composition at t={idx_t / (self.params.t_steps - 1) * self.params.t_max:.2f} s')
-        # plotter.plot_3d_all()
-        # plotter.plot_hm_all()
-        #plotter.plot_y("Test", idx_t)
 
-        plotter.animate_w(f'plots/2-w_f-{self.params.f_y}_delta-{self.params.delta_y}_t-{self.params.t_max}.mp4',
-                          'Mass fractions over time', 2)
-        plotter.animate_T(f'plots/2-T_f-{self.params.f_y}_delta-{self.params.delta_T}_t-{self.params.t_max}.mp4',
-                          'Temperature over time', 2)
+        path = f'plots_water/f-{self.params.f_y}_deltaw-{self.params.delta_w}_deltaT-{self.params.delta_T}_t-{self.params.t_max}'
+        plotter.animate_w(os.path.join(path, 'weight.mp4'), 'Mass fractions over time', 1)
+        plotter.animate_T(os.path.join(path, 'temp.mp4'), 'Temperature over time', 1, )
+        plotter.animate_Y(os.path.join(path, 'yield.mp4'), 'Yield over time', 1)
+        plotter.animate_y(os.path.join(path, 'mole.mp4'), 'Mole fractions over time', 1)

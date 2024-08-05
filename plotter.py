@@ -1,7 +1,10 @@
+import os.path
+
 import matplotlib.pyplot as plt
 import numpy as np
 from cmcrameri import cm
 from matplotlib import animation
+from matplotlib.ticker import AutoMinorLocator
 
 from thermo import w_to_y
 
@@ -17,6 +20,28 @@ class Plotter:
         self.T = T
         self.p = p
         self.set_params()
+
+        # Colors
+        self.colors = plt.cm.Dark2(np.linspace(0, 1, 8))
+        self.cmap = cm.bamako
+
+        # const
+        self.M_co2 = 44.0095  # [g/mol]
+        self.M_h2 = 2.01588  # [g/mol]
+        self.M_ch4 = 16.0425  # [g/mol]
+        self.M_h2o = 18.0153  # [g/mol]
+        self.v_h2 = -4
+        self.v_co2 = -1
+        self.v_ch4 = 1
+        self.v_h2o = 2
+
+        M = (self.w_co2 / self.M_co2 + self.w_h2 / self.M_h2
+             + self.w_ch4 / self.M_ch4 + self.w_h2o / self.M_h2o) ** -1
+
+        self.y_co2 = w_to_y(self.w_co2, self.M_co2, M)
+        self.y_h2 = w_to_y(self.w_h2, self.M_h2, M)
+        self.y_ch4 = w_to_y(self.w_ch4, self.M_ch4, M)
+        self.y_h2o = w_to_y(self.w_h2o, self.M_h2o, M)
 
     def set_params(self):
         # plt.rcParams['figure.figsize'] = (fig_w, fig_h)
@@ -46,9 +71,6 @@ class Plotter:
         plt.rcParams['legend.columnspacing'] = 0.5
         plt.rcParams['legend.labelspacing'] = 0.3
         plt.rcParams['legend.title_fontsize'] = 14
-        # Colors
-        self.colors = plt.cm.Dark2(np.linspace(0, 1, 8))
-        self.cmap = cm.bamako
 
     def plot_w(self, t, title):
         # create figure
@@ -70,6 +92,8 @@ class Plotter:
         ax.set_ylabel(r'$w_\mathrm{i}$')
         ax.legend()
         ax.grid()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         fig.show()
 
@@ -96,6 +120,8 @@ class Plotter:
         ax.set_ylabel(r'$w_\mathrm{i}$')
         ax.legend(loc='upper left')
         ax.grid()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         def anim(t):
             line_co2.set_ydata(self.w_co2[:, t])
@@ -106,6 +132,11 @@ class Plotter:
 
         ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t),
                                       interval=max(self.t) / len(self.t) * 1000 * scale)
+
+        dir_name = os.path.dirname(file)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+
         ani.save(file)
 
     def animate_T(self, file, title, scale=1.0):
@@ -129,6 +160,8 @@ class Plotter:
         ax.set_xlabel('r / mm')
         ax.set_ylabel('T / K')
         ax.grid()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         # ax.legend(loc='upper left')
 
@@ -207,18 +240,10 @@ class Plotter:
         ax.set_xlim(min(self.r), max(self.r))
         ax.set_ylim(0, 1)
 
-        M_co2 = 44.0095  # [g/mol]
-        M_h2 = 2.01588  # [g/mol]
-        M_ch4 = 16.0425  # [g/mol]
-        M_h2o = 18.0153  # [g/mol]
-
-        M = (self.w_co2[:, t] / M_co2 + self.w_h2[:, t] / M_h2
-             + self.w_ch4[:, t] / M_ch4 + self.w_h2o[:, t] / M_h2o) ** -1
-
-        ax.plot(self.r, w_to_y(self.w_co2[:, t], M_co2, M), label=r'$y_\mathrm{CO_2}$')
-        ax.plot(self.r, w_to_y(self.w_h2[:, t], M_h2, M), label=r'$y_\mathrm{H_2}$')
-        ax.plot(self.r, w_to_y(self.w_ch4[:, t], M_ch4, M), label=r'$y_\mathrm{CH_4}$')
-        ax.plot(self.r, w_to_y(self.w_h2o[:, t], M_h2o, M), label=r'$y_\mathrm{H_2O}$')
+        ax.plot(self.r, self.y_co2, label=r'$y_\mathrm{CO_2}$')
+        ax.plot(self.r, self.y_h2, label=r'$y_\mathrm{H_2}$')
+        ax.plot(self.r, self.y_ch4, label=r'$y_\mathrm{CH_4}$')
+        ax.plot(self.r, self.y_h2o, label=r'$y_\mathrm{H_2O}$')
 
         # set title
         ax.set_title(title)
@@ -226,5 +251,119 @@ class Plotter:
         ax.set_ylabel(r'$y_\mathrm{i}$')
         ax.legend()
         ax.grid()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         fig.show()
+
+    def animate_y(self, file, title, scale=1.0):
+        # create figure
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        # set limits for x and y axis (r and w)
+        ax.set_xlim(min(self.r), max(self.r))
+        ax.set_ylim(0, 1)
+
+        line_co2, = ax.plot(self.r, self.y_co2[:, 0], label=r'$y_\mathrm{CO_2}$')
+        line_h2, = ax.plot(self.r, self.y_h2[:, 0], label=r'$y_\mathrm{H_2}$')
+        line_ch4, = ax.plot(self.r, self.y_ch4[:, 0], label=r'$y_\mathrm{CH_4}$')
+        line_h2o, = ax.plot(self.r, self.y_h2o[:, 0], label=r'$y_\mathrm{H_2O}$')
+
+        # add a text element to display the time
+        time_text = ax.text(0.2, 0.9, 't = {:.2f}'.format(self.t[0]), transform=ax.transAxes)
+
+        # set title
+        ax.set_title(title)
+        ax.set_xlabel('r / mm')
+        ax.set_ylabel(r'$y_\mathrm{i}$')
+        ax.legend(loc='upper left')
+        ax.grid()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        def anim(t):
+            line_co2.set_ydata(self.y_co2[:, t])
+            line_h2.set_ydata(self.y_h2[:, t])
+            line_ch4.set_ydata(self.y_ch4[:, t])
+            line_h2o.set_ydata(self.y_h2o[:, t])
+            time_text.set_text('t = {:.2f}'.format(self.t[t]))  # update the time text
+
+        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t),
+                                      interval=max(self.t) / len(self.t) * 1000 * scale)
+
+        dir_name = os.path.dirname(file)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+
+        ani.save(file)
+
+    def animate_Y(self, file, title, scale=1.0):
+        # create figure
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        # set limits for x and y axis (r and w)
+        ax.set_xlim(min(self.r), max(self.r))
+        ax.set_ylim(0, 1)
+
+        line, = ax.plot(self.r, (self.y_ch4[:, 0] - self.y_ch4[:, 0]) / self.y_co2[:, 0] * self.v_co2 / self.v_ch4)
+
+        # add a text element to display the time
+        time_text = ax.text(0.2, 0.9, 't = {:.2f}'.format(self.t[0]), transform=ax.transAxes)
+
+        # set title
+        ax.set_title(title)
+        ax.set_xlabel('r / mm')
+        ax.set_ylabel(r'$Y_{\mathrm{CH}_4,\mathrm{CO}_2}$')
+        ax.grid()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        def anim(t):
+            line.set_ydata((self.y_ch4[:, 0] - self.y_ch4[:, t]) / self.y_co2[:, 0] * self.v_co2 / self.v_ch4)
+            time_text.set_text('t = {:.2f}'.format(self.t[t]))  # update the time text
+
+        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t),
+                                      interval=max(self.t) / len(self.t) * 1000 * scale)
+
+        dir_name = os.path.dirname(file)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+
+        ani.save(file)
+
+    def animate_X_co2(self, file, title, scale=1.0):
+        # create figure
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        # set limits for x and y axis (r and w)
+        ax.set_xlim(min(self.r), max(self.r))
+        #ax.set_ylim(0, 1)
+
+        line, = ax.plot(self.r, (self.y_co2[:, 0] - self.y_co2[:, 0]) / self.y_co2[:, 0])
+
+        # add a text element to display the time
+        time_text = ax.text(0.2, 0.9, 't = {:.2f}'.format(self.t[0]), transform=ax.transAxes)
+
+        # set title
+        ax.set_title(title)
+        ax.set_xlabel('r / mm')
+        ax.set_ylabel(r'$X_{\mathrm{CO}_2}$')
+        ax.grid()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        def anim(t):
+            line.set_ydata((self.y_co2[:, 0] - self.y_co2[:, t]) / self.y_co2[:, 0])
+            time_text.set_text('t = {:.2f}'.format(self.t[t]))  # update the time text
+
+        ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t),
+                                      interval=max(self.t) / len(self.t) * 1000 * scale)
+
+        dir_name = os.path.dirname(file)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+
+        ani.save(file)
