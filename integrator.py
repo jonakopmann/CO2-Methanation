@@ -1,20 +1,24 @@
+import array
+import math
 import os
 
+import casadi as ca
 import numpy as np
 
+from context import Context
 from diffusion import Diffusion
+from diffusion_coefficient import DiffusionCoefficient
 from heat_conduction import HeatConduction
 from parameters import Parameters
 from plotter import Plotter
 from reaction import Reaction
-from thermo import *
-import casadi as ca
 
 
 class Integrator:
     def __init__(self, params: Parameters, debug=False):
         self.params = params
         self.diff = Diffusion(self.params)
+        self.d_i_eff = DiffusionCoefficient(self.params)
         self.reaction = Reaction(self.params)
         self.heat_cond = HeatConduction(self.params)
         self.debug = debug
@@ -30,151 +34,80 @@ class Integrator:
         return self.params.d_pore / 3 * ca.sqrt(8e3 * self.params.R * T / (ca.pi * M_i))
 
     def run(self):
-        slices = int(self.params.f_y * self.params.t_max)
+        slices = int(self.params.f_w * self.params.t_max)
         self.params.t_steps = int((self.params.t_steps + 1) / slices) * slices
         self.params.t_i = np.linspace(0, self.params.t_max, self.params.t_steps)
         step_size = self.params.t_steps / slices
         res_final = {'xf': [], 'zf': []}
         for k in range(slices):
-            # create sym variables for y_i, T and t
-            w_co2 = ca.SX.sym('w_co2', self.params.r_steps)
-            w_ch4 = ca.SX.sym('w_ch4', self.params.r_steps)
-            w_h2 = ca.SX.sym('w_h2', self.params.r_steps)
-            w_h2o = 1 - w_co2 - w_ch4 - w_h2
-            T = ca.SX.sym('T', self.params.r_steps)
-            t = ca.SX.sym('t')
-            p = ca.SX.sym('p', self.params.r_steps)
+            # create context
+            ctx = Context(self.params)
 
             # create ode variables
-            ode_co2 = ca.SX.sym('ode_co2', self.params.r_steps)
-            ode_ch4 = ca.SX.sym('ode_ch4', self.params.r_steps)
-            ode_h2 = ca.SX.sym('ode_h2', self.params.r_steps)
-            ode_T = ca.SX.sym('ode_T', self.params.r_steps)
-            alg_p = ca.SX.sym('alg_p', self.params.r_steps)
+            ode_co2 = ca.SX(self.params.r_steps, 1)
+            ode_ch4 = ca.SX(self.params.r_steps, 1)
+            ode_h2 = ca.SX(self.params.r_steps, 1)
+            ode_T = ca.SX(self.params.r_steps, 1)
+            alg_p = ca.SX(self.params.r_steps, 1)
 
-            # create surface variables
-            w_co2_surf = ca.SX.sym('w_co2_surf')
-            w_co2_fl = ca.SX.sym('w_co2_fl')
-            w_ch4_surf = ca.SX.sym('w_ch4_surf')
-            w_ch4_fl = ca.SX.sym('w_ch4_fl')
-            w_h2_surf = ca.SX.sym('w_h2_surf')
-            w_h2_fl = ca.SX.sym('w_h2_fl')
-            T_surf = ca.SX.sym('T_surf')
-            T_fl = ca.SX.sym('T_fl')
-            w_h2o_surf = 1 - w_co2_surf - w_h2_surf - w_ch4_surf
-            w_h2o_fl = 1 - w_co2_fl - w_h2_fl - w_ch4_fl
+            alg_D_co2 = ca.SX(self.params.r_steps, 1)
+            alg_D_ch4 = ca.SX(self.params.r_steps, 1)
+            alg_D_h2 = ca.SX(self.params.r_steps, 1)
 
-            D_co2_eff = ca.SX.sym('D_co2_eff', self.params.r_steps)
-            alg_D_co2 = ca.SX.sym('alg_D_co2', self.params.r_steps)
-            D_ch4_eff = ca.SX.sym('D_ch4_eff', self.params.r_steps)
-            alg_D_ch4 = ca.SX.sym('alg_D_ch4', self.params.r_steps)
-            D_h2_eff = ca.SX.sym('D_h2_eff', self.params.r_steps)
-            alg_D_h2 = ca.SX.sym('alg_D_h2', self.params.r_steps)
-
-            M_fl = (w_co2_fl / self.params.M_co2 + w_h2_fl / self.params.M_h2
-                    + w_ch4_fl / self.params.M_ch4 + w_h2o_fl / self.params.M_h2o) ** -1
-            M_surf = (w_co2_surf / self.params.M_co2 + w_h2_surf / self.params.M_h2
-                      + w_ch4_surf / self.params.M_ch4 + w_h2o_surf / self.params.M_h2o) ** -1
-            M_1 = (w_co2[-1] / self.params.M_co2 + w_h2[-1] / self.params.M_h2
-                   + w_ch4[-1] / self.params.M_ch4 + w_h2o[-1] / self.params.M_h2o) ** -1
-
-            roh_fl = p[-1] * 1e5 * M_fl / (self.params.R * T_fl)  # [g/m^3]
-            roh_surf = p[-1] * 1e5 * M_surf / (self.params.R * T_surf)
-            roh_1 = p[-1] * 1e5 * M_1 / (self.params.R * T[-1])
-
-            cp_fl = (w_co2_fl * get_cp_co2(T_fl) + w_h2_fl * get_cp_h2(T_fl)
-                     + w_ch4_fl * get_cp_ch4(T_fl) + w_h2o_fl * get_cp_h2o(T_fl))  # [J/(g*K)]
-            ny_fl = (w_co2_fl * get_ny_co2(T_fl, p[-1]) + w_h2_fl * get_ny_h2(T_fl, p[-1])
-                     + w_ch4_fl * get_ny_ch4(T_fl, p[-1]) + w_h2o_fl * get_ny_h2o(T_fl, p[-1]))  # [mm^2/s]
-
-            lambda_fl = (w_co2_fl * get_lambda_co2(T_fl) + w_h2_fl * get_lambda_h2(T_fl)
-                         + w_ch4_fl * get_lambda_ch4(T_fl) + w_h2o_fl * get_lambda_h2o(T_fl))  # [W/(mm*K)]
-
-            Re = self.params.v * self.params.r_max * 2 / ny_fl
-            Pr = ny_fl / lambda_fl * cp_fl * roh_fl * 1e-9
-            Nu = 2 + 0.6 * Re ** 0.5 + Pr ** (1 / 3)
-            alpha = Nu * lambda_fl / (2 * self.params.r_max)  # [W/(mm^2*K)]
-
-            # species transfer
-            def get_beta_i(D_i_eff):
-                Sc = ny_fl / D_i_eff
-                Sh = 2 + 0.6 * Re ** 0.5 + Sc ** (1 / 3)
-                return Sh * D_i_eff / (2 * self.params.r_max)  # [mm/s]
-
-            # create alg equations for the surface values
-            alg_co2_surf = (w_co2_fl * roh_fl - D_co2_eff[-1] / get_beta_i(D_co2_eff[-1])
-                            * (w_co2_surf * roh_surf - w_co2[-1] * roh_1) / self.params.h - w_co2_surf * roh_surf)
-            alg_ch4_surf = (w_ch4_fl * roh_fl / self.params.M_ch4 - D_ch4_eff[-1] / get_beta_i(D_ch4_eff[-1])
-                            * (w_ch4_surf * roh_surf - w_ch4[-1] * roh_1) / self.params.h - w_ch4_surf * roh_surf)
-            alg_h2_surf = (w_h2_fl * roh_fl - D_h2_eff[-1] / get_beta_i(D_h2_eff[-1])
-                            * (w_h2_surf * roh_surf - w_h2[-1] * roh_1) / self.params.h - w_h2_surf * roh_surf)
-
-            alg_T_surf = T_fl - (self.params.lambda_eff / alpha * (T_surf - T[-1]) / self.params.h) - T_surf
+            # create boundary conditions for the surface values
+            alg_co2_surf = (ctx.w_co2_fl * ctx.roh_fl - (ctx.D_co2_eff[-1] / ctx.beta_co2
+                            * (ctx.w_co2_surf * ctx.roh_surf - ctx.w_co2[-1] * ctx.roh[-1])
+                            / self.params.h).printme(0) - ctx.w_co2_surf * ctx.roh_surf)
+            alg_ch4_surf = (ctx.w_ch4_fl * ctx.roh_fl / self.params.M_ch4 - ctx.D_ch4_eff[-1] / ctx.beta_ch4
+                            * (ctx.w_ch4_surf * ctx.roh_surf - ctx.w_ch4[-1] * ctx.roh[-1])
+                            / self.params.h - ctx.w_ch4_surf * ctx.roh_surf)
+            alg_h2_surf = (ctx.w_h2_fl * ctx.roh_fl - ctx.D_h2_eff[-1] / ctx.beta_h2
+                           * (ctx.w_h2_surf * ctx.roh_surf - ctx.w_h2[-1] * ctx.roh[-1])
+                           / self.params.h - ctx.w_h2_surf * ctx.roh_surf)
+            alg_T_surf = (ctx.T_fl - (self.params.lambda_eff / ctx.alpha * (ctx.T_surf - ctx.T[-1]) / self.params.h)
+                          - ctx.T_surf)
 
             # assign equations to ode for each radius i
             for i in range(self.params.r_steps):
-                # molar mass, reaction rate and density
-                M = (w_co2[i] / self.params.M_co2 + w_h2[i] / self.params.M_h2
-                     + w_ch4[i] / self.params.M_ch4 + w_h2o[i] / self.params.M_h2o) ** -1
-                r = self.reaction.get_r(w_co2[i], w_h2[i], w_ch4[i], w_h2o[i], T[i], p[i], M)
-                roh_g = p[i] * 1e5 * M / (self.params.R * T[i])
+                # get reaction rate
+                r = self.reaction.get_r(ctx, i)
 
-                ode_co2[i] = (self.diff.get_term(w_co2, w_co2_surf, i, D_co2_eff[i])
-                              + self.reaction.get_mass_term(self.params.M_co2, roh_g, self.params.v_co2, r))
-                ode_ch4[i] = (self.diff.get_term(w_ch4, w_ch4_surf, i, D_ch4_eff[i])
-                              + self.reaction.get_mass_term(self.params.M_ch4, roh_g, self.params.v_ch4, r))
-                ode_h2[i] = (self.diff.get_term(w_h2, w_h2_surf, i, D_h2_eff[i])
-                             + self.reaction.get_mass_term(self.params.M_h2, roh_g, self.params.v_h2, r))
-                ode_T[i] = (self.heat_cond.get_term(T, T_surf, i)
-                            + self.reaction.get_heat_term(T[i], r))
-                alg_p[i] = (self.params.M_0 * T[i]) / (M * self.params.T_0) * self.params.p_0 - p[i]
+                # odes for w, T and p
+                ode_co2[i] = (self.diff.get_term(ctx.w_co2, ctx.w_co2_surf, i, ctx.D_co2_eff[i])
+                              + self.reaction.get_mass_term(self.params.M_co2, ctx.roh[i], self.params.v_co2, r))
+                ode_ch4[i] = (self.diff.get_term(ctx.w_ch4, ctx.w_ch4_surf, i, ctx.D_ch4_eff[i])
+                              + self.reaction.get_mass_term(self.params.M_ch4, ctx.roh[i], self.params.v_ch4, r))
+                ode_h2[i] = (self.diff.get_term(ctx.w_h2, ctx.w_h2_surf, i, ctx.D_h2_eff[i])
+                             + self.reaction.get_mass_term(self.params.M_h2, ctx.roh[i], self.params.v_h2, r))
+                ode_T[i] = self.heat_cond.get_term(ctx, i) + self.reaction.get_heat_term(ctx.T[i], r)
+                alg_p[i] = (self.params.M_0 * ctx.T[i]) / (ctx.M[i] * self.params.T_0) * self.params.p_0 - ctx.p[i]
 
-                D_co2_h2 = self.get_D_i_j(T[i], p[i], self.params.M_co2, self.params.M_h2, self.params.delta_v_co2,
-                                          self.params.delta_v_h2)
-                D_co2_ch4 = self.get_D_i_j(T[i], p[i], self.params.M_co2, self.params.M_ch4, self.params.delta_v_co2,
-                                           self.params.delta_v_ch4)
-                D_co2_h2o = self.get_D_i_j(T[i], p[i], self.params.M_co2, self.params.M_h2o, self.params.delta_v_co2,
-                                           self.params.delta_v_h2o)
-                D_h2_h2o = self.get_D_i_j(T[i], p[i], self.params.M_h2, self.params.M_h2o, self.params.delta_v_h2,
-                                          self.params.delta_v_h2o)
-                D_h2_ch4 = self.get_D_i_j(T[i], p[i], self.params.M_h2, self.params.M_ch4, self.params.delta_v_h2,
-                                          self.params.delta_v_ch4)
-                D_ch4_h2o = self.get_D_i_j(T[i], p[i], self.params.M_ch4, self.params.M_h2o, self.params.delta_v_ch4,
-                                           self.params.delta_v_h2o)
+                # init binary diffusion coefficients
+                self.d_i_eff.init(ctx, i)
 
-                y_co2 = w_to_y(w_co2[i], self.params.M_co2, M)
-                y_h2 = w_to_y(w_h2[i], self.params.M_h2, M)
-                y_ch4 = w_to_y(w_ch4[i], self.params.M_ch4, M)
-                y_h2o = w_to_y(w_h2o[i], self.params.M_h2o, M)
+                # alg for D_i_eff
+                alg_D_co2[i] = self.d_i_eff.get_D_co2(ctx, i) - ctx.D_co2_eff[i]
+                alg_D_h2[i] = self.d_i_eff.get_D_h2(ctx, i) - ctx.D_h2_eff[i]
+                alg_D_ch4[i] = self.d_i_eff.get_D_ch4(ctx, i) - ctx.D_ch4_eff[i]
 
-                alg_D_co2[i] = ((self.params.epsilon / self.params.tau
-                                 * (1 / self.get_D_i_m(y_co2, y_h2, y_ch4, y_h2o, D_co2_h2, D_co2_ch4, D_co2_h2o)
-                                    + 1e-6 / self.get_D_i_Kn(T[i], self.params.M_co2)) ** -1) - D_co2_eff[i])
-                alg_D_ch4[i] = ((self.params.epsilon / self.params.tau
-                                 * (1 / self.get_D_i_m(y_ch4, y_h2, y_co2, y_h2o, D_h2_ch4, D_co2_ch4, D_ch4_h2o)
-                                    + 1e-6 / self.get_D_i_Kn(T[i], self.params.M_ch4)) ** -1) - D_ch4_eff[i])
-                alg_D_h2[i] = ((self.params.epsilon / self.params.tau
-                                * (1 / self.get_D_i_m(y_h2, y_co2, y_ch4, y_h2o, D_co2_h2, D_h2_ch4, D_h2_h2o)
-                                   + 1e-6 / self.get_D_i_Kn(T[i], self.params.M_h2)) ** -1) - D_h2_eff[i])
-
+            # make input dynamic
             if k & 1 == 0:
-                alg_co2_fl = (self.params.w_co2_0 + self.params.delta_w - w_co2_fl)
-                alg_h2_fl = (self.params.w_h2_0 - self.params.delta_w - w_h2_fl)
-                alg_T_fl = self.params.T_0 + self.params.delta_T - T_fl
+                alg_co2_fl = (self.params.w_co2_0 + self.params.delta_w - ctx.w_co2_fl)
+                alg_h2_fl = (self.params.w_h2_0 - self.params.delta_w - ctx.w_h2_fl)
+                alg_T_fl = self.params.T_0 + self.params.delta_T - ctx.T_fl
             else:
-                alg_co2_fl = (self.params.w_co2_0 - self.params.delta_w - w_co2_fl)
-                alg_h2_fl = (self.params.w_h2_0 + self.params.delta_w - w_h2_fl)
-                alg_T_fl = self.params.T_0 - self.params.delta_T - T_fl
-            alg_ch4_fl = (self.params.w_ch4_0
-                          + 0 * self.params.delta_w * ca.sin(2 * ca.pi * self.params.f_y * t) - w_ch4_fl)
+                alg_co2_fl = (self.params.w_co2_0 - self.params.delta_w - ctx.w_co2_fl)
+                alg_h2_fl = (self.params.w_h2_0 + self.params.delta_w - ctx.w_h2_fl)
+                alg_T_fl = self.params.T_0 - self.params.delta_T - ctx.T_fl
+            alg_ch4_fl = (self.params.w_ch4_0 - ctx.w_ch4_fl)
 
             # create integrator
             dae = {
-                'x': ca.veccat(w_co2, w_ch4, w_h2, T),
-                'z': ca.vertcat(w_co2_surf, w_ch4_surf, w_h2_surf, T_surf,
-                                w_co2_fl, w_ch4_fl, w_h2_fl, T_fl,
-                                D_co2_eff, D_ch4_eff, D_h2_eff, p),
-                't': t,
+                'x': ca.veccat(ctx.w_co2, ctx.w_ch4, ctx.w_h2, ctx.T),
+                'z': ca.vertcat(ctx.w_co2_surf, ctx.w_ch4_surf, ctx.w_h2_surf, ctx.T_surf,
+                                ctx.w_co2_fl, ctx.w_ch4_fl, ctx.w_h2_fl, ctx.T_fl,
+                                ctx.D_co2_eff, ctx.D_ch4_eff, ctx.D_h2_eff, ctx.p),
+                't': ctx.t,
                 'ode': ca.vertcat(ode_co2, ode_ch4, ode_h2, ode_T),
                 'alg': ca.vertcat(alg_co2_surf, alg_ch4_surf, alg_h2_surf, alg_T_surf,
                                   alg_co2_fl, alg_ch4_fl, alg_h2_fl, alg_T_fl,
@@ -230,7 +163,7 @@ class Integrator:
                           res_w_co2.full(), res_w_h2.full(), res_w_ch4.full(), res_w_h2o.full(), res_T.full(),
                           res_p.full())
 
-        path = f'plots_water/f-{self.params.f_y}_deltaw-{self.params.delta_w}_deltaT-{self.params.delta_T}_t-{self.params.t_max}'
+        path = f'plots_water/f-{self.params.f_w}_deltaw-{self.params.delta_w}_deltaT-{self.params.delta_T}_t-{self.params.t_max}'
         plotter.animate_w(os.path.join(path, 'weight.mp4'), 'Mass fractions over time', 1)
         plotter.animate_T(os.path.join(path, 'temp.mp4'), 'Temperature over time', 1, )
         # plotter.animate_Y(os.path.join(path, 'yield.mp4'), 'Yield over time', 1)

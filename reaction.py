@@ -1,3 +1,4 @@
+from context import Context
 from parameters import Parameters
 from thermo import *
 
@@ -44,18 +45,18 @@ class Reaction:
     def get_K_eq_imp(self, T, p):
         return 137 * (T ** -3.998) * ca.exp(158.7e3 / (self.params.R * T))
 
-    def get_r(self, w_co2, w_h2, w_ch4, w_h2o, T, p, M):
-        p_co2 = p * w_co2 * M / self.params.M_co2
-        p_h2 = p * w_h2 * M / self.params.M_h2
-        p_ch4 = p * w_ch4 * M / self.params.M_ch4
-        p_h2o = p * w_h2o * M / self.params.M_h2o
+    def get_r(self, ctx: Context, i):
+        p_co2 = ctx.p[i] * ctx.w_co2[i] * ctx.M[i] / self.params.M_co2
+        p_h2 = ctx.p[i] * ctx.w_h2[i] * ctx.M[i] / self.params.M_h2
+        p_ch4 = ctx.p[i] * ctx.w_ch4[i] * ctx.M[i] / self.params.M_ch4
+        p_h2o = ctx.p[i] * ctx.w_h2o[i] * ctx.M[i] / self.params.M_h2o
 
-        a = (self.get_k(T) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
-                1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(T, p)))
-             / ((1 + self.get_K_oh(T) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(T) *
-                 (p_h2 ** 0.5) + self.get_K_mix(T) * (p_co2 ** 0.5)) ** 2))
+        a = (self.get_k(ctx.T[i]) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
+                1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(ctx.T[i], ctx.p[i])))
+             / ((1 + self.get_K_oh(ctx.T[i]) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(ctx.T[i]) *
+                 (p_h2 ** 0.5) + self.get_K_mix(ctx.T[i]) * (p_co2 ** 0.5)) ** 2))
 
-        return ca.if_else(w_co2 < 1e-20, 1e-20, a)
+        return ca.if_else(ctx.w_co2[i] < 1e-20, 1e-20, a)
 
     def get_mass_term(self, M_i, roh_g, v_i, r):
         return ((1 - self.params.epsilon) / self.params.epsilon) * M_i / roh_g * self.params.roh_s * v_i * r

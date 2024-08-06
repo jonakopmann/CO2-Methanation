@@ -1,3 +1,4 @@
+from context import Context
 from parameters import Parameters
 
 
@@ -15,17 +16,17 @@ class HeatConduction:
             return 0
         return (T[r] - T[r - 1]) / self.params.h
 
-    def get_dr2(self, T, T_surf, r):
+    def get_dr2(self, ctx: Context, r):
         if r == 0:
             # symmetrical
-            return (T[r + 1] - 2 * T[r] + T[r + 1]) / (self.params.h ** 2)
+            return (ctx.T[r + 1] - 2 * ctx.T[r] + ctx.T[r + 1]) / (self.params.h ** 2)
         elif r == self.params.r_steps - 1:
-            return (T[r - 1] - 2 * T[r] + T_surf) / (self.params.h ** 2)
-        return (T[r - 1] - 2 * T[r] + T[r + 1]) / (self.params.h ** 2)
+            return (ctx.T[r - 1] - 2 * ctx.T[r] + ctx.T_surf) / (self.params.h ** 2)
+        return (ctx.T[r - 1] - 2 * ctx.T[r] + ctx.T[r + 1]) / (self.params.h ** 2)
 
-    def get_term(self, T, T_suf, r):
+    def get_term(self, ctx: Context, r):
         if r == 0:
-            a = self.get_dr2(T, T_suf, r)
+            a = self.get_dr2(ctx, r)
         else:
-            a = self.get_dr2(T, T_suf, r) + (self.params.n / (r * self.params.h)) * self.get_dr(T, r)
+            a = self.get_dr2(ctx, r) + (self.params.n / (r * self.params.h)) * self.get_dr(ctx.T, r)
         return 1e9 * self.get_lambda() / (self.params.roh_s * self.params.cp_s) * a

@@ -30,7 +30,7 @@ class Parameters:
     # dynamic const
     delta_w = 0
     delta_T = 0
-    f_y = 1  # [1/s]
+    f_w = 0.7  # [1/s]
     f_T = 0.7  # [1/s]
 
     # constants
