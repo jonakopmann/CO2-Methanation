@@ -1,7 +1,5 @@
 import numpy as np
 
-from thermo import *
-
 
 class Parameters:
     # start mass fractions
@@ -30,8 +28,8 @@ class Parameters:
     M_0 = (w_co2_0 / M_co2 + w_h2_0 / M_h2 + w_ch4_0 / M_ch4 + w_h2o_0 / M_h2o) ** -1  # [g/mol]
 
     # dynamic const
-    delta_w = 0.1
-    delta_T = 2
+    delta_w = 0
+    delta_T = 0
     f_y = 1  # [1/s]
     f_T = 0.7  # [1/s]
 
@@ -61,32 +59,10 @@ class Parameters:
     r_steps = 100
     r_max = 1.5  # [mm]
     h = r_max / r_steps  # [mm]
-    T_0 = 520  # [K]
+    T_0 = 525  # [K]
     t_steps = 200
-    t_max = 15
+    t_max = 20
     t_i = np.linspace(0, t_max, t_steps)  # [s]
 
     # heat transfer
     v = 1000  # [mm/s]
-    roh_fl = p_0 * 1e5 * M_0 / (R * T_0)  # [g/m^3]
-    cp_fl = (w_co2_0 * get_cp_co2(T_0) + w_h2_0 * get_cp_h2(T_0)
-             + w_ch4_0 * get_cp_ch4(T_0) + w_h2o_0 * get_cp_h2o(T_0))  # [J/(g*K)]
-    ny_fl = (w_to_y(w_co2_0, M_co2, M_0) * get_ny_co2(T_0, p_0) + w_to_y(w_h2_0, M_h2, M_0) * get_ny_h2(T_0, p_0)
-             + w_to_y(w_ch4_0, M_ch4, M_0) * get_ny_ch4(T_0, p_0) + w_to_y(w_h2o_0, M_h2o, M_0) * get_ny_h2o(T_0, p_0))  # [mm^2/s]
-    lambda_fl = (w_to_y(w_co2_0, M_co2, M_0) * get_lambda_co2(T_0) + w_to_y(w_h2_0, M_h2, M_0) * get_lambda_h2(T_0)
-                 + w_to_y(w_ch4_0, M_ch4, M_0) * get_lambda_ch4(T_0) + w_to_y(w_h2o_0, M_h2o, M_0) * get_lambda_h2o(T_0))  # [W/(mm*K)]
-
-    Re = v * r_max * 2 / (ny_fl * epsilon)
-    Pr = ny_fl / lambda_fl * cp_fl * roh_fl * 1e-9
-    Nu_lam = 0.664 * (Re ** 0.5) * (Pr ** (3/2))
-    Nu_turb = 0.037 * (Re ** 0.8) * Pr / (1 + 2.443 * (Re ** -0.1) * (Pr ** (2/3) - 1))
-    Nu = 2 + (Nu_lam ** 2 + Nu_turb ** 2) ** 0.5
-    alpha = Nu * lambda_fl / (2 * r_max)  # [W/(mm^2*K)]
-
-    # species transfer
-    def get_beta_i(self, D_i_eff):
-        Sc = self.ny_fl / D_i_eff
-        Shu_lam = 0.664 * (self.Re ** 0.5) * (Sc ** (3 / 2))
-        Sh_turb = 0.037 * (self.Re ** 0.8) * Sc / (1 + 2.443 * (self.Re ** -0.1) * (Sc ** (2 / 3) - 1))
-        Sh = 2 + (Shu_lam ** 2 + Sh_turb ** 2) ** 0.5
-        return Sh * D_i_eff / (2 * self.r_max)  # [mm/s]

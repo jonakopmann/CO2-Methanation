@@ -7,7 +7,7 @@ from heat_conduction import HeatConduction
 from parameters import Parameters
 from plotter import Plotter
 from reaction import Reaction
-from thermo import w_to_y
+from thermo import *
 import casadi as ca
 
 
@@ -64,9 +64,6 @@ class Integrator:
             w_h2_surf = 1 - w_co2_surf - w_ch4_surf - w_h2o_surf
             w_h2_fl = 1 - w_co2_fl - w_ch4_fl - w_h2o_fl
 
-            # create alg equations for the surface values
-            alg_T_surf = T_fl - self.params.lambda_eff / self.params.alpha * (T_surf - T[-1]) / self.params.h - T_surf
-
             D_co2_eff = ca.SX.sym('D_co2_eff', self.params.r_steps)
             alg_D_co2 = ca.SX.sym('alg_D_co2', self.params.r_steps)
             D_ch4_eff = ca.SX.sym('D_ch4_eff', self.params.r_steps)
@@ -81,22 +78,38 @@ class Integrator:
             M_1 = (w_co2[-1] / self.params.M_co2 + w_h2[-1] / self.params.M_h2
                    + w_ch4[-1] / self.params.M_ch4 + w_h2o[-1] / self.params.M_h2o) ** -1
 
-            roh_fl = p[-1] * 1e5 * M_fl / (self.params.R * T_fl)
+            roh_fl = p[-1] * 1e5 * M_fl / (self.params.R * T_fl)  # [g/m^3]
             roh_surf = p[-1] * 1e5 * M_surf / (self.params.R * T_surf)
             roh_1 = p[-1] * 1e5 * M_1 / (self.params.R * T[-1])
 
-            alg_co2_surf = (w_co2_fl * roh_fl / self.params.M_co2
-                            - D_co2_eff[-1] / self.params.get_beta_i(D_co2_eff[-1])
-                            * (w_co2_surf * roh_surf / self.params.M_co2 - w_co2[-1] * roh_1 / self.params.M_co2)
-                            / self.params.h - w_co2_surf * roh_surf / self.params.M_co2)
-            alg_ch4_surf = (w_ch4_fl * roh_fl / self.params.M_ch4
-                            - D_ch4_eff[-1] / self.params.get_beta_i(D_ch4_eff[-1])
-                            * (w_ch4_surf * roh_surf / self.params.M_ch4 - w_ch4[-1] * roh_1 / self.params.M_ch4)
-                            / self.params.h - w_ch4_surf * roh_surf / self.params.M_ch4)
-            alg_h2o_surf = (w_h2o_fl * roh_fl / self.params.M_h2o
-                            - D_h2o_eff[-1] / self.params.get_beta_i(D_h2o_eff[-1])
-                            * (w_h2o_surf * roh_surf / self.params.M_h2o - w_h2o[-1] * roh_1 / self.params.M_h2o)
-                            / self.params.h - w_h2o_surf * roh_surf / self.params.M_h2o)
+            cp_fl = (w_co2_fl * get_cp_co2(T_fl) + w_h2_fl * get_cp_h2(T_fl)
+                     + w_ch4_fl * get_cp_ch4(T_fl) + w_h2o_fl * get_cp_h2o(T_fl))  # [J/(g*K)]
+            ny_fl = (w_co2_fl * get_ny_co2(T_fl, p[-1]) + w_h2_fl * get_ny_h2(T_fl, p[-1])
+                     + w_ch4_fl * get_ny_ch4(T_fl, p[-1]) + w_h2o_fl * get_ny_h2o(T_fl, p[-1]))  # [mm^2/s]
+
+            lambda_fl = (w_co2_fl * get_lambda_co2(T_fl) + w_h2_fl * get_lambda_h2(T_fl)
+                         + w_ch4_fl * get_lambda_ch4(T_fl) + w_h2o_fl * get_lambda_h2o(T_fl))  # [W/(mm*K)]
+
+            Re = self.params.v * self.params.r_max * 2 / ny_fl
+            Pr = ny_fl / lambda_fl * cp_fl * roh_fl * 1e-9
+            Nu = 2 + 0.6 * Re ** 0.5 + Pr ** (1 / 3)
+            alpha = Nu * lambda_fl / (2 * self.params.r_max)  # [W/(mm^2*K)]
+
+            # species transfer
+            def get_beta_i(D_i_eff):
+                Sc = ny_fl / D_i_eff
+                Sh = 2 + 0.6 * Re ** 0.5 + Sc ** (1 / 3)
+                return Sh * D_i_eff / (2 * self.params.r_max)  # [mm/s]
+
+            # create alg equations for the surface values
+            alg_co2_surf = (w_co2_fl * roh_fl - D_co2_eff[-1] / get_beta_i(D_co2_eff[-1])
+                            * (w_co2_surf * roh_surf - w_co2[-1] * roh_1) / self.params.h - w_co2_surf * roh_surf)
+            alg_ch4_surf = (w_ch4_fl * roh_fl / self.params.M_ch4 - D_ch4_eff[-1] / get_beta_i(D_ch4_eff[-1])
+                            * (w_ch4_surf * roh_surf - w_ch4[-1] * roh_1) / self.params.h - w_ch4_surf * roh_surf)
+            alg_h2o_surf = (w_h2o_fl * roh_fl - D_h2o_eff[-1] / get_beta_i(D_h2o_eff[-1])
+                            * (w_h2o_surf * roh_surf - w_h2o[-1] * roh_1) / self.params.h - w_h2o_surf * roh_surf)
+
+            alg_T_surf = T_fl - (self.params.lambda_eff / alpha * (T_surf - T[-1]) / self.params.h) - T_surf
 
             # assign equations to ode for each radius i
             for i in range(self.params.r_steps):
@@ -168,7 +181,7 @@ class Integrator:
                                   alg_D_co2, alg_D_ch4, alg_D_h2o, alg_p)
             }
 
-            options = {'regularity_check': True}
+            options = {'regularity_check': False}
             if self.debug:
                 options['verbose'] = True
                 options['monitor'] = 'daeF'
@@ -218,8 +231,8 @@ class Integrator:
                           res_w_co2.full(), res_w_h2.full(), res_w_ch4.full(), res_w_h2o.full(), res_T.full(),
                           res_p.full())
 
-        path = f'plots/f-{self.params.f_y}_deltaw-{self.params.delta_w}_deltaT-{self.params.delta_T}_t-{self.params.t_max}'
+        path = f'plots_nu/f-{self.params.f_y}_deltaw-{self.params.delta_w}_deltaT-{self.params.delta_T}_t-{self.params.t_max}'
         plotter.animate_w(os.path.join(path, 'weight.mp4'), 'Mass fractions over time', 1)
         plotter.animate_T(os.path.join(path, 'temp.mp4'), 'Temperature over time', 1, )
-        plotter.animate_Y(os.path.join(path, 'yield.mp4'), 'Yield over time', 1)
-        plotter.animate_y(os.path.join(path, 'mole.mp4'), 'Mole fractions over time', 1)
+        # plotter.animate_Y(os.path.join(path, 'yield.mp4'), 'Yield over time', 1)
+        # plotter.animate_y(os.path.join(path, 'mole.mp4'), 'Mole fractions over time', 1)
