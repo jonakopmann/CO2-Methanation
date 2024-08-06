@@ -50,10 +50,12 @@ class Reaction:
         p_ch4 = p * w_ch4 * M / self.params.M_ch4
         p_h2o = p * w_h2o * M / self.params.M_h2o
 
-        return (self.get_k(T) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
+        a = (self.get_k(T) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
                 1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(T, p)))
-                / ((1 + self.get_K_oh(T) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(T) *
-                    (p_h2 ** 0.5) + self.get_K_mix(T) * (p_co2 ** 0.5)) ** 2))
+             / ((1 + self.get_K_oh(T) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(T) *
+                 (p_h2 ** 0.5) + self.get_K_mix(T) * (p_co2 ** 0.5)) ** 2))
+
+        return ca.if_else(w_co2 < 1e-20, 1e-20, a)
 
     def get_mass_term(self, M_i, roh_g, v_i, r):
         return ((1 - self.params.epsilon) / self.params.epsilon) * M_i / roh_g * self.params.roh_s * v_i * r
