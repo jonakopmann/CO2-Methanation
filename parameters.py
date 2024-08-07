@@ -28,9 +28,9 @@ class Parameters:
     M_0 = (w_co2_0 / M_co2 + w_h2_0 / M_h2 + w_ch4_0 / M_ch4 + w_h2o_0 / M_h2o) ** -1  # [g/mol]
 
     # dynamic const
-    delta_w = 0
-    delta_T = 0
-    f_w = 0.7  # [1/s]
+    delta_w = 0.05
+    delta_T = 5
+    f_w = 1  # [1/s]
     f_T = 0.7  # [1/s]
 
     # constants

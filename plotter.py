@@ -2,6 +2,7 @@ import os.path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import casadi as ca
 from cmcrameri import cm
 from matplotlib import animation
 from matplotlib.ticker import AutoMinorLocator
@@ -10,15 +11,25 @@ from thermo import w_to_y
 
 
 class Plotter:
-    def __init__(self, t, r, w_co2, w_h2, w_ch4, w_h2o, T, p):
+    def __init__(self, t, r, res_final):
         self.t = t
         self.r = r
-        self.w_co2 = w_co2
-        self.w_h2 = w_h2
-        self.w_ch4 = w_ch4
-        self.w_h2o = w_h2o
-        self.T = T
-        self.p = p
+        r_steps = len(r) - 1
+        res_x = ca.vertsplit(res_final['xf'], r_steps)
+        res_z = ca.vertsplit(res_final['zf'])
+
+        self.w_co2 = ca.vertcat(res_x[0], res_z[0]).full()
+        self.w_h2 = ca.vertcat(res_x[2], res_z[2]).full()
+        self.w_ch4 = ca.vertcat(res_x[1], res_z[1]).full()
+        self.w_h2o = 1 - self.w_co2 - self.w_h2 - self.w_co2
+        self.T = ca.vertcat(res_x[3], res_z[3]).full()
+        self.p = ca.vertcat(ca.vertcat(*res_z[-r_steps:]), res_z[-r_steps:][-1]).full()
+
+        self.w_co2_fl = res_z[4].full()
+        self.w_h2_fl = res_z[6].full()
+        self.w_ch4_fl = res_z[5].full()
+        self.T_fl = res_z[7].full()
+
         self.set_params()
 
         # Colors
@@ -367,3 +378,39 @@ class Plotter:
             os.makedirs(dir_name)
 
         ani.save(file)
+
+    def plot_T_fl_surf(self):
+        fig, axs = plt.subplots(2, 1)
+
+        axs[0].plot(self.t, self.T_fl.flatten())
+        axs[0].set_ylabel('Temperature / K')
+
+        axs[1].plot(self.t, self.T[0, :].flatten())
+        axs[1].set_ylabel('Temperature / K')
+        axs[1].set_xlabel('Time / s')
+
+        fig.show()
+
+    def plot_w_co2_fl_surf(self):
+        fig, axs = plt.subplots(2, 1)
+
+        axs[0].plot(self.t, self.w_co2_fl.flatten())
+        axs[0].set_ylabel(r'$w_{\mathrm{CO_2}}$')
+
+        axs[1].plot(self.t, self.w_co2[0, :].flatten())
+        axs[1].set_ylabel(r'$w_{\mathrm{CO_2}}$')
+        axs[1].set_xlabel('Time / s')
+
+        fig.show()
+
+    def plot_w_h2_fl_surf(self):
+        fig, axs = plt.subplots(2, 1)
+
+        axs[0].plot(self.t, self.w_h2_fl.flatten())
+        axs[0].set_ylabel(r'$w_{\mathrm{H_2}}$')
+
+        axs[1].plot(self.t, self.w_h2[0, :].flatten())
+        axs[1].set_ylabel(r'$w_{\mathrm{H_2}}$')
+        axs[1].set_xlabel('Time / s')
+
+        fig.show()
