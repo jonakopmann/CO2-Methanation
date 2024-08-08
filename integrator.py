@@ -1,4 +1,3 @@
-import array
 import math
 import os
 
@@ -15,68 +14,81 @@ from reaction import Reaction
 from slice import Slice
 
 
+def frequency_intervals(t, f1, f2):
+    # TODO: make this cleaner
+    # this is straight from ai, but it works so its ok for now
+
+    # Calculate time intervals for each frequency
+    interval_f1 = 1 / f1
+    interval_f2 = 1 / f2
+
+    # Initialize arrays to store time intervals
+    intervals_f1 = []
+    intervals_f2 = []
+
+    # Calculate time intervals for each cycle of f1
+    for i in range(int(t / interval_f1) + 1):
+        start = i * interval_f1
+        end = (i + 1) * interval_f1
+        if end > t:
+            end = t
+        intervals_f1.append((start, end))
+
+    # Calculate time intervals for each cycle of f2
+    for i in range(int(t / interval_f2) + 1):
+        start = i * interval_f2
+        end = (i + 1) * interval_f2
+        if end > t:
+            end = t
+        intervals_f2.append((start, end))
+
+    # Combine intervals
+    combined_intervals = []
+    for start_f1, end_f1 in intervals_f1:
+        for start_f2, end_f2 in intervals_f2:
+            if start_f1 < end_f2 and start_f2 < end_f1:
+                combined_intervals.append((max(start_f1, start_f2), min(end_f1, end_f2)))
+
+    # Remove duplicates and sort intervals
+    combined_intervals = sorted(list(set(combined_intervals)))
+
+    # Convert intervals to durations
+    durations = [combined_intervals[i][1] - combined_intervals[i][0] for i in range(len(combined_intervals))]
+
+    return durations
+
+
 class Integrator:
     def __init__(self, params: Parameters, debug=False):
         self.params = params
-        self.diff = Diffusion(self.params)
-        self.d_i_eff = DiffusionCoefficient(self.params)
-        self.reaction = Reaction(self.params)
-        self.heat_cond = HeatConduction(self.params)
         self.debug = debug
 
-    def get_D_i_j(self, T, p, M_i, M_j, v_i, v_j):
-        return 1e-1 * (T ** 1.75) * (((M_i ** -1) + (M_j ** -1)) ** 0.5) / (
-                p * 0.98692327 * ((v_i ** (1 / 3)) + (v_j ** (1 / 3))) ** 2)
-
-    def get_D_i_m(self, y_i, y_j_1, y_j_2, y_j_3, D_i_j_1, D_i_j_2, D_i_j_3):
-        return (1 - y_i) / ((y_j_1 / D_i_j_1) + (y_j_2 / D_i_j_2) + (y_j_3 / D_i_j_3))
-
-    def get_D_i_Kn(self, T, M_i):
-        return self.params.d_pore / 3 * ca.sqrt(8e3 * self.params.R * T / (ca.pi * M_i))
-
     def run(self):
-        if self.params.f_w % self.params.f_T == 0:
-            f = max(self.params.f_w, self.params.f_T)
-            count = math.ceil(f * self.params.t_max)
-        else:
-            count_w = math.ceil(self.params.f_w * self.params.t_max)
-            count_T = math.ceil(self.params.f_T * self.params.t_max)
-            if count_w == 1 or count_T == 1:
-                count = max(count_w, count_T)
-            else:
-                count = count_w + count_T
+        intervals = frequency_intervals(self.params.t_max, self.params.f_w, self.params.f_T)
 
-        self.params.t_steps = 7 * count
-        self.params.t_i = np.linspace(0, self.params.t_max, self.params.t_steps)
-
+        t0 = 0
+        t = [np.array([0.0])]
         slices = []
-        i = 0
-        prior_w = False
-        prior_T = False
+        index = 0
+        for i in range(len(intervals)):
+            w = ca.fmod(t0, 2 / self.params.f_w) < (1 / self.params.f_w)
+            T = ca.fmod(t0, 2 / self.params.f_T) < (1 / self.params.f_T)
+            steps = int(max(self.params.fps * intervals[i], self.params.x_min))
+            t.append(np.delete(np.linspace(t0, t0 + intervals[i], steps), 0))
+            t0 = t0 + intervals[i]
+            slices.append(Slice(w, T, index, steps))
+            index += steps - 1
 
-        for t in self.params.t_i:
-            w = ca.fmod(t, 2 / self.params.f_w) < (1 / self.params.f_w)
-            T = ca.fmod(t, 2 / self.params.f_T) < (1 / self.params.f_T)
-
-            if (prior_w != w) or (prior_T != T):
-                slices.append(Slice(w, T, i))
-
-            prior_w = w
-            prior_T = T
-
-            i += 1
-
-        # last slice is just last value, just add it to previous one
-        slices.pop()
-
-        slices[-1].step_size = self.params.t_steps - slices[-1].step
-        for i in range(len(slices) - 1):
-            slices[i].step_size = slices[i + 1].step - slices[i].step
+        self.params.t_i = np.concatenate(t)
 
         res_final = {'xf': [], 'zf': []}
         for k in slices:
             # create context
             ctx = Context(self.params)
+            diff = Diffusion(self.params)
+            diff_i_eff = DiffusionCoefficient(ctx)
+            reaction = Reaction(ctx)
+            heat_cond = HeatConduction(ctx)
 
             # create ode variables
             ode_co2 = ca.SX(self.params.r_steps, 1)
@@ -118,25 +130,25 @@ class Integrator:
             # assign equations to ode for each radius i
             for i in range(self.params.r_steps):
                 # get reaction rate
-                r = self.reaction.get_r(ctx, i)
+                r = reaction.get_r(i)
 
                 # odes for w, T and p
-                ode_co2[i] = (self.diff.get_term(ctx.w_co2, ctx.w_co2_surf, i, ctx.D_co2_eff[i])
-                              + self.reaction.get_mass_term(self.params.M_co2, ctx.roh[i], self.params.v_co2, r))
-                ode_ch4[i] = (self.diff.get_term(ctx.w_ch4, ctx.w_ch4_surf, i, ctx.D_ch4_eff[i])
-                              + self.reaction.get_mass_term(self.params.M_ch4, ctx.roh[i], self.params.v_ch4, r))
-                ode_h2[i] = (self.diff.get_term(ctx.w_h2, ctx.w_h2_surf, i, ctx.D_h2_eff[i])
-                             + self.reaction.get_mass_term(self.params.M_h2, ctx.roh[i], self.params.v_h2, r))
-                ode_T[i] = self.heat_cond.get_term(ctx, i) + self.reaction.get_heat_term(ctx.T[i], r)
+                ode_co2[i] = (diff.get_term(ctx.w_co2, ctx.w_co2_surf, i, ctx.D_co2_eff[i])
+                              + reaction.get_mass_term(self.params.M_co2, ctx.roh[i], self.params.v_co2, r))
+                ode_ch4[i] = (diff.get_term(ctx.w_ch4, ctx.w_ch4_surf, i, ctx.D_ch4_eff[i])
+                              + reaction.get_mass_term(self.params.M_ch4, ctx.roh[i], self.params.v_ch4, r))
+                ode_h2[i] = (diff.get_term(ctx.w_h2, ctx.w_h2_surf, i, ctx.D_h2_eff[i])
+                             + reaction.get_mass_term(self.params.M_h2, ctx.roh[i], self.params.v_h2, r))
+                ode_T[i] = heat_cond.get_term(i) + reaction.get_heat_term(ctx.T[i], r)
                 alg_p[i] = (self.params.M_0 * ctx.T[i]) / (ctx.M[i] * self.params.T_0) * self.params.p_0 - ctx.p[i]
 
                 # init binary diffusion coefficients
-                self.d_i_eff.init(ctx, i)
+                diff_i_eff.init(i)
 
                 # alg for D_i_eff
-                alg_D_co2[i] = self.d_i_eff.get_D_co2(ctx, i) - ctx.D_co2_eff[i]
-                alg_D_h2[i] = self.d_i_eff.get_D_h2(ctx, i) - ctx.D_h2_eff[i]
-                alg_D_ch4[i] = self.d_i_eff.get_D_ch4(ctx, i) - ctx.D_ch4_eff[i]
+                alg_D_co2[i] = diff_i_eff.get_D_co2(i) - ctx.D_co2_eff[i]
+                alg_D_h2[i] = diff_i_eff.get_D_h2(i) - ctx.D_h2_eff[i]
+                alg_D_ch4[i] = diff_i_eff.get_D_ch4(i) - ctx.D_ch4_eff[i]
 
             # create integrator
             dae = {
@@ -156,8 +168,10 @@ class Integrator:
                 options['verbose'] = True
                 options['monitor'] = 'daeF'
 
-            integrator = ca.integrator('I', 'idas', dae, self.params.t_i[k.step],
-                                       self.params.t_i[k.step:k.step + k.step_size], options)
+            t0 = float(self.params.t_i[k.step])
+            t = self.params.t_i[k.step:k.step + k.step_size]
+            integrator = ca.integrator('I', 'idas', dae, t0,
+                                       t, options)
 
             # create initial values
             if k.step == 0:
@@ -177,17 +191,18 @@ class Integrator:
 
             # integrate
             res = integrator(x0=x0, z0=z0)
-            res_final['xf'] = ca.horzcat(res_final['xf'], res['xf'])
-            res_final['zf'] = ca.horzcat(res_final['zf'], res['zf'])
+            skip = 0
+            if k.step != 0:
+                skip = 1
+            res_final['xf'] = ca.horzcat(res_final['xf'], res['xf'][:, skip:])
+            res_final['zf'] = ca.horzcat(res_final['zf'], res['zf'][:, skip:])
 
         # create plotter and plot
-        plotter = Plotter(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_final)
+        plotter = Plotter(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res_final, self.params)
 
         path = f'plots_water/fw-{self.params.f_w}_deltaw-{self.params.delta_w}_fT-{self.params.f_T}_deltaT-{self.params.delta_T}_t-{self.params.t_max}'
-        plotter.plot_T_fl_surf()
-        plotter.plot_w_co2_fl_surf()
-        plotter.plot_w_h2_fl_surf()
-        # plotter.animate_w(os.path.join(path, 'weight.mp4'), 'Mass fractions over time', 1)
+        #plotter.animate_X_co2('')
+        plotter.animate_w(os.path.join(path, 'weight.mp4'), 'Mass fractions over time', 1)
         # plotter.animate_T(os.path.join(path, 'temp.mp4'), 'Temperature over time', 1, )
         # plotter.animate_Y(os.path.join(path, 'yield.mp4'), 'Yield over time', 1)
-        # plotter.animate_y(os.path.join(path, 'mole.mp4'), 'Mole fractions over time', 1)
+        plotter.animate_y(os.path.join(path, 'mole.mp4'), 'Mole fractions over time', 1)

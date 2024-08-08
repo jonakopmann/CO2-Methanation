@@ -4,8 +4,9 @@ from thermo import *
 
 
 class Reaction:
-    def __init__(self, params: Parameters):
-        self.params = params
+    def __init__(self, ctx: Context):
+        self.ctx = ctx
+        self.params = ctx.params
 
     def get_k(self, T):
         # k_0_ref * exp(E_A/R * (1/T_ref - 1/T))
@@ -45,18 +46,21 @@ class Reaction:
     def get_K_eq_imp(self, T, p):
         return 137 * (T ** -3.998) * ca.exp(158.7e3 / (self.params.R * T))
 
-    def get_r(self, ctx: Context, i):
-        p_co2 = ctx.p[i] * ctx.w_co2[i] * ctx.M[i] / self.params.M_co2
-        p_h2 = ctx.p[i] * ctx.w_h2[i] * ctx.M[i] / self.params.M_h2
-        p_ch4 = ctx.p[i] * ctx.w_ch4[i] * ctx.M[i] / self.params.M_ch4
-        p_h2o = ctx.p[i] * ctx.w_h2o[i] * ctx.M[i] / self.params.M_h2o
+    def get_p_i(self, w_i, M_i, i):
+        return self.ctx.p[i] * w_i * self.ctx.M[i] / M_i
 
-        a = (self.get_k(ctx.T[i]) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
-                1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(ctx.T[i], ctx.p[i])))
-             / ((1 + self.get_K_oh(ctx.T[i]) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(ctx.T[i]) *
-                 (p_h2 ** 0.5) + self.get_K_mix(ctx.T[i]) * (p_co2 ** 0.5)) ** 2))
+    def get_r(self, i):
+        p_co2 = self.get_p_i(self.ctx.w_co2[i], self.params.M_co2, i)
+        p_h2 = self.get_p_i(self.ctx.w_h2[i], self.params.M_h2, i)
+        p_ch4 = self.get_p_i(self.ctx.w_ch4[i], self.params.M_ch4, i)
+        p_h2o = self.get_p_i(self.ctx.w_h2o[i], self.params.M_h2o, i)
 
-        return ca.if_else(ctx.w_co2[i] < 1e-20, 1e-20, a)
+        r = (self.get_k(self.ctx.T[i]) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
+                1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(self.ctx.T[i], self.ctx.p[i])))
+             / ((1 + self.get_K_oh(self.ctx.T[i]) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(self.ctx.T[i]) *
+                 (p_h2 ** 0.5) + self.get_K_mix(self.ctx.T[i]) * (p_co2 ** 0.5)) ** 2))
+
+        return ca.if_else(self.ctx.w_co2[i] < 1e-20, 1e-20, r)
 
     def get_mass_term(self, M_i, roh_g, v_i, r):
         return ((1 - self.params.epsilon) / self.params.epsilon) * M_i / roh_g * self.params.roh_s * v_i * r
