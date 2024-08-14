@@ -18,7 +18,7 @@ class Context:
         self.T = ca.SX.sym('T', self.params.r_steps)
         self.M = (self.w_co2 / self.params.M_co2 + self.w_h2 / self.params.M_h2
                   + self.w_ch4 / self.params.M_ch4 + self.w_h2o / self.params.M_h2o) ** -1
-        self.roh = self.p * 1e5 * self.M / (self.params.R * self.T)
+        self.rho = self.p * 1e5 * self.M / (self.params.R * self.T)
 
         # mole fraction
         self.y_co2 = w_to_y(self.w_co2, self.params.M_co2, self.M)
@@ -34,7 +34,7 @@ class Context:
         self.T_surf = ca.SX.sym('T_surf')
         self.M_surf = (self.w_co2_surf / self.params.M_co2 + self.w_h2_surf / self.params.M_h2
                        + self.w_ch4_surf / self.params.M_ch4 + self.w_h2o_surf / self.params.M_h2o) ** -1
-        self.roh_surf = self.p[-1] * 1e5 * self.M_surf / (self.params.R * self.T_surf)
+        self.rho_surf = self.p[-1] * 1e5 * self.M_surf / (self.params.R * self.T_surf)
 
         # fluid
         self.w_co2_fl = ca.SX.sym('w_co2_fl')
@@ -44,7 +44,7 @@ class Context:
         self.T_fl = ca.SX.sym('T_fl')
         self.M_fl = (self.w_co2_fl / self.params.M_co2 + self.w_h2_fl / self.params.M_h2
                      + self.w_ch4_fl / self.params.M_ch4 + self.w_h2o_fl / self.params.M_h2o) ** -1
-        self.roh_fl = self.p[-1] * 1e5 * self.M_fl / (self.params.R * self.T_fl)
+        self.rho_fl = self.p[-1] * 1e5 * self.M_fl / (self.params.R * self.T_fl)
 
         # diffusion
         self.D_co2_eff = ca.SX.sym('D_co2_eff', self.params.r_steps)
@@ -62,7 +62,7 @@ class Context:
                      + self.w_ch4_fl * get_lambda_ch4(self.T_fl) + self.w_h2o_fl * get_lambda_h2o(self.T_fl))  # [W/(mm*K)]
 
         Re = self.params.v * self.params.r_max * 2 / ny_fl
-        Pr = ny_fl / lambda_fl * cp_fl * self.roh_fl * 1e-9
+        Pr = ny_fl / lambda_fl * cp_fl * self.rho_fl * 1e-9
         Nu = 2 + 0.6 * Re ** 0.5 + Pr ** (1 / 3)
         self.alpha = Nu * lambda_fl / (2 * self.params.r_max)  # [W/(mm^2*K)]
 

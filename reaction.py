@@ -60,10 +60,10 @@ class Reaction:
              / ((1 + self.get_K_oh(self.ctx.T[i]) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(self.ctx.T[i]) *
                  (p_h2 ** 0.5) + self.get_K_mix(self.ctx.T[i]) * (p_co2 ** 0.5)) ** 2))
 
-        return ca.if_else(self.ctx.w_co2[i] < 1e-20, 1e-20, r)
+        return ca.if_else(self.ctx.w_co2[i] < 1e-20, 1e-30, r)
 
-    def get_mass_term(self, M_i, roh_g, v_i, r):
-        return ((1 - self.params.epsilon) / self.params.epsilon) * M_i / roh_g * self.params.roh_s * v_i * r
+    def get_mass_term(self, M_i, rho_g, v_i, r):
+        return ((1 - self.params.epsilon) / self.params.epsilon) * M_i / rho_g * self.params.rho_s * v_i * r
 
     def get_heat_term(self, T, r):
         return -self.get_H_R(T) / self.params.cp_s * (1 - self.params.epsilon) * r

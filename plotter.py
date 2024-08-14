@@ -40,13 +40,14 @@ class Plotter:
         self.colors = plt.cm.Dark2(np.linspace(0, 1, 8))
         self.cmap = cm.bamako
 
-        M = (self.w_co2 / self.params.M_co2 + self.w_h2 / self.params.M_h2
+        self.M = (self.w_co2 / self.params.M_co2 + self.w_h2 / self.params.M_h2
              + self.w_ch4 / self.params.M_ch4 + self.w_h2o / self.params.M_h2o) ** -1
+        self.rho = self.p * 1e5 * self.M / (self.params.R * self.T)
 
-        self.y_co2 = w_to_y(self.w_co2, self.params.M_co2, M)
-        self.y_h2 = w_to_y(self.w_h2, self.params.M_h2, M)
-        self.y_ch4 = w_to_y(self.w_ch4, self.params.M_ch4, M)
-        self.y_h2o = w_to_y(self.w_h2o, self.params.M_h2o, M)
+        self.y_co2 = w_to_y(self.w_co2, self.params.M_co2, self.M)
+        self.y_h2 = w_to_y(self.w_h2, self.params.M_h2, self.M)
+        self.y_ch4 = w_to_y(self.w_ch4, self.params.M_ch4, self.M)
+        self.y_h2o = w_to_y(self.w_h2o, self.params.M_h2o, self.M)
 
         ny_fl = (self.w_co2_fl * get_ny_co2(self.T_fl, self.p[-1]) + self.w_h2_fl * get_ny_h2(self.T_fl, self.p[-1])
                  + self.w_ch4_fl * get_ny_ch4(self.T_fl, self.p[-1]) + self.w_h2o_fl * get_ny_h2o(self.T_fl, self.p[-1]))  # [mm^2/s]
@@ -57,13 +58,14 @@ class Plotter:
 
         M_fl = (self.w_co2_fl / self.params.M_co2 + self.w_h2_fl / self.params.M_h2
                 + self.w_ch4_fl / self.params.M_ch4 + self.w_h2o_fl / self.params.M_h2o) ** -1
-        roh_fl = self.p[-1] * 1e5 * M_fl / (self.params.R * self.T_fl)
-        roh = self.p[-1] * 1e5 * M[-1, :] / (self.params.R * self.T[-1, :])
+        rho_fl = self.p[-1] * 1e5 * M_fl / (self.params.R * self.T_fl)
+        rho_surf = self.p[-1] * 1e5 * self.M[-1, :] / (self.params.R * self.T[-1, :])
 
-        A = 5  # [mm^2]
-        self.n_in = self.params.v * self.w_co2_fl * 1e-9 * roh_fl / M_fl * A
+        A = np.pi * (self.params.r_max * 1.02) ** 2  # [mm^2]
+        self.n_in = self.params.v * self.w_co2_fl * 1e-9 * rho_fl / self.params.M_co2 * A
 
-        self.n_aus = self.beta_co2 * (self.w_co2[-1, :] * roh - self.w_co2_fl * roh_fl) * 1e-9 / self.params.M_co2 * 4 * np.pi * self.params.r_max ** 2
+        self.delta_n = (self.beta_co2 * (self.w_co2_fl * 1e-9 * rho_fl / self.params.M_co2 - self.w_co2[-1, :] * 1e-9 * rho_surf / self.params.M_co2)
+                        * 4 * np.pi * self.params.r_max ** 2)
 
     def set_params(self):
         # plt.rcParams['figure.figsize'] = (fig_w, fig_h)
@@ -355,12 +357,12 @@ class Plotter:
 
         ani.save(file)
 
-    def animate_X_co2(self, title):
+    def plot_X_co2(self, title):
         # create figure
         fig = plt.figure()
         ax = fig.add_subplot()
 
-        ax.plot(self.t, ((self.n_in - self.n_aus) / self.n_in).flatten())
+        ax.plot(self.t, (self.delta_n / self.n_in).flatten())
 
         # set title
         ax.set_title(title)
@@ -372,8 +374,116 @@ class Plotter:
 
         fig.show()
 
+    def get_k(self, T):
+        # k_0_ref * exp(E_A/R * (1/T_ref - 1/T))
+        return self.params.k_0_ref * ca.exp(self.params.EA / self.params.R * ((1 / self.params.T_ref) - (1 / T)))
+
+    def get_K_oh(self, T):
+        # K_x_ref * exp(delta_H_x/R * (1/T_ref - 1/T))
+        return (self.params.K_oh_ref
+                * ca.exp(self.params.delta_H_oh / self.params.R * ((1 / self.params.T_ref) - (1 / T))))
+
+    def get_K_h2(self, T):
+        # K_x_ref * exp(delta_H_x/R * (1/T_ref - 1/T))
+        return (self.params.K_h2_ref
+                * ca.exp(self.params.delta_H_h2 / self.params.R * ((1 / self.params.T_ref) - (1 / T))))
+
+    def get_K_mix(self, T):
+        # K_x_ref * exp(delta_H_x/R * (1/T_ref - 1/T))
+        return (self.params.K_mix_ref
+                * ca.exp(self.params.delta_H_mix / self.params.R * ((1 / self.params.T_ref) - (1 / T))))
+
+    def get_H_R(self, T):
+        H_f_h2o = -241.8264 + get_H_h2o(T)
+        H_f_ch4 = -74.87310 + get_H_ch4(T)
+        H_f_h2 = 0 + get_H_h2(T)
+        H_f_co2 = -393.5224 + get_H_co2(T)
+
+        return 1e3 * (self.params.v_co2 * H_f_co2 + self.params.v_h2 * H_f_h2
+                      + self.params.v_ch4 * H_f_ch4 + self.params.v_h2o * H_f_h2o)  # [J/mol]
+
+    def get_K_eq(self, T, p):
+        # exp(-delta_R_G/RT)
+        S = (self.params.v_co2 * (get_S_co2(T)) + self.params.v_h2 * (get_S_h2(T))
+             + self.params.v_ch4 * (get_S_ch4(T)) + self.params.v_h2o * (get_S_h2o(T)))  # [J/(mol*K)]
+        G = self.get_H_R(T) - T * S  # [J/mol]
+        return ca.exp(-G / (self.params.R * T)) * p ** -2
+
+    def plot_cat_eff(self, title):
+        # create figure
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        p_co2 = self.p * self.w_co2 * self.M / self.params.M_co2
+        p_h2 = self.p * self.w_h2 * self.M / self.params.M_h2
+        p_ch4 = self.p * self.w_ch4 * self.M / self.params.M_ch4
+        p_h2o = self.p * self.w_h2o * self.M / self.params.M_h2o
+
+        r = (self.get_k(self.T) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
+                1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(self.T, self.p)))
+             / ((1 + self.get_K_oh(self.T) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(self.T) *
+                 (p_h2 ** 0.5) + self.get_K_mix(self.T) * (p_co2 ** 0.5)) ** 2)).full()
+
+        r = np.nan_to_num(r)
+
+        sum = 0
+        for i in range(self.params.r_steps):
+            sum += i ** 2 * r[i, :] + (i + 1) ** 2 * r[i + 1, :]
+        sum *= (self.params.h ** 3) / 2
+
+        ax.plot(self.t, (3 / (self.params.r_max ** 3) * sum / r[-1, :]).flatten())
+
+        # set title
+        ax.set_title(title)
+        ax.set_xlabel('t / s')
+        ax.set_ylabel(r'$\eta_{\mathrm{CH_4}}$')
+        ax.grid()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        fig.show()
+
+    def plot_cat_eff_thiele(self, title):
+        # create figure
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        p_co2 = self.p * self.w_co2 * self.M / self.params.M_co2
+        p_h2 = self.p * self.w_h2 * self.M / self.params.M_h2
+        p_ch4 = self.p * self.w_ch4 * self.M / self.params.M_ch4
+        p_h2o = self.p * self.w_h2o * self.M / self.params.M_h2o
+
+        r = (self.get_k(self.T) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
+                1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(self.T, self.p)))
+             / ((1 + self.get_K_oh(self.T) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(self.T) *
+                 (p_h2 ** 0.5) + self.get_K_mix(self.T) * (p_co2 ** 0.5)) ** 2)).full()
+
+        r = np.nan_to_num(r)
+
+        D_co2_eff = ca.vertcat(*self.D_co2_eff, self.D_co2_eff[-1])
+
+        thiele = self.params.r_max * np.sqrt(np.abs(-self.params.v_co2 * r * (1 - self.params.epsilon) * self.params.rho_s / (D_co2_eff * self.w_co2 * self.rho / self.params.M_co2)))
+
+        eff = (3 / thiele * (1 / np.tanh(thiele) - 1 / thiele))
+
+        ax.plot(self.t, eff.flatten())
+
+        # set title
+        ax.set_title(title)
+        ax.set_xlabel('t / s')
+        ax.set_ylabel(r'$\eta_{\mathrm{CH_4}}$')
+        ax.grid()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        fig.show()
+
     def plot_T_fl_surf(self):
         fig, axs = plt.subplots(2, 1)
+        y_max = max(np.max(self.T_fl), np.max(self.T[0, :]))
+        y_min = min(np.min(self.T_fl), np.min(self.T[0, :]))
+        axs[0].set_ylim(y_min - 0.05 * (y_max - y_min), y_max + 0.05 * (y_max - y_min))
+        axs[1].set_ylim(y_min - 0.05 * (y_max - y_min), y_max + 0.05 * (y_max - y_min))
 
         axs[0].plot(self.t, self.T_fl.flatten())
         axs[0].set_ylabel('T / K')
@@ -386,6 +496,8 @@ class Plotter:
 
     def plot_w_co2_fl_surf(self):
         fig, axs = plt.subplots(2, 1)
+        axs[0].set_ylim(0, 1)
+        axs[1].set_ylim(0, 1)
 
         axs[0].plot(self.t, self.w_co2_fl.flatten())
         axs[0].set_ylabel(r'$w_{\mathrm{CO_2}}$')
@@ -398,6 +510,8 @@ class Plotter:
 
     def plot_w_h2_fl_surf(self):
         fig, axs = plt.subplots(2, 1)
+        axs[0].set_ylim(0, 1)
+        axs[1].set_ylim(0, 1)
 
         axs[0].plot(self.t, self.w_h2_fl.flatten())
         axs[0].set_ylabel(r'$w_{\mathrm{H_2}}$')

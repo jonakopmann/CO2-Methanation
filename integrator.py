@@ -63,16 +63,25 @@ class Integrator:
         self.params = params
         self.debug = debug
 
-    def run(self):
+    def create_t_i(self):
+        # we need to create a time array that has all the intersections from our 2 frequencies
         intervals = frequency_intervals(self.params.t_max, self.params.f_w, self.params.f_T)
 
         t0 = 0
         t = [np.array([0.0])]
         slices = []
         index = 0
+        w_1 = 0
+        T_1 = 0
+        w = False
+        T = False
         for i in range(len(intervals)):
-            w = ca.fmod(t0, 2 / self.params.f_w) < (1 / self.params.f_w)
-            T = ca.fmod(t0, 2 / self.params.f_T) < (1 / self.params.f_T)
+            if ca.fabs(t0 * self.params.f_w - w_1) <= 1e-10:
+                w = not w
+                w_1 += 1
+            if ca.fabs(t0 * self.params.f_T - T_1) <= 1e-10:
+                T = not T
+                T_1 += 1
             steps = int(max(self.params.fps * intervals[i], self.params.x_min))
             t.append(np.delete(np.linspace(t0, t0 + intervals[i], steps), 0))
             t0 = t0 + intervals[i]
@@ -80,8 +89,13 @@ class Integrator:
             index += steps - 1
 
         self.params.t_i = np.concatenate(t)
+        return slices
 
+    def run(self):
+        # create our intervals and final output dict
+        slices = self.create_t_i()
         res_final = {'xf': [], 'zf': []}
+
         for k in slices:
             # create context
             ctx = Context(self.params)
@@ -102,15 +116,15 @@ class Integrator:
             alg_D_h2 = ca.SX(self.params.r_steps, 1)
 
             # create boundary conditions for the surface values
-            alg_co2_surf = (ctx.w_co2_fl * ctx.roh_fl - (ctx.D_co2_eff[-1] / ctx.beta_co2
-                            * (ctx.w_co2_surf * ctx.roh_surf - ctx.w_co2[-1] * ctx.roh[-1])
-                            / self.params.h) - ctx.w_co2_surf * ctx.roh_surf)
-            alg_ch4_surf = (ctx.w_ch4_fl * ctx.roh_fl / self.params.M_ch4 - ctx.D_ch4_eff[-1] / ctx.beta_ch4
-                            * (ctx.w_ch4_surf * ctx.roh_surf - ctx.w_ch4[-1] * ctx.roh[-1])
-                            / self.params.h - ctx.w_ch4_surf * ctx.roh_surf)
-            alg_h2_surf = (ctx.w_h2_fl * ctx.roh_fl - ctx.D_h2_eff[-1] / ctx.beta_h2
-                           * (ctx.w_h2_surf * ctx.roh_surf - ctx.w_h2[-1] * ctx.roh[-1])
-                           / self.params.h - ctx.w_h2_surf * ctx.roh_surf)
+            alg_co2_surf = (ctx.w_co2_fl * ctx.rho_fl - (ctx.D_co2_eff[-1] / ctx.beta_co2
+                            * (ctx.w_co2_surf * ctx.rho_surf - ctx.w_co2[-1] * ctx.rho[-1]) / self.params.h)
+                            - ctx.w_co2_surf * ctx.rho_surf)
+            alg_ch4_surf = (ctx.w_ch4_fl * ctx.rho_fl / self.params.M_ch4 - ctx.D_ch4_eff[-1] / ctx.beta_ch4
+                            * (ctx.w_ch4_surf * ctx.rho_surf - ctx.w_ch4[-1] * ctx.rho[-1]) / self.params.h
+                            - ctx.w_ch4_surf * ctx.rho_surf)
+            alg_h2_surf = (ctx.w_h2_fl * ctx.rho_fl - ctx.D_h2_eff[-1] / ctx.beta_h2
+                           * (ctx.w_h2_surf * ctx.rho_surf - ctx.w_h2[-1] * ctx.rho[-1]) / self.params.h
+                           - ctx.w_h2_surf * ctx.rho_surf)
             alg_T_surf = (ctx.T_fl - (self.params.lambda_eff / ctx.alpha * (ctx.T_surf - ctx.T[-1]) / self.params.h)
                           - ctx.T_surf)
 
@@ -134,11 +148,11 @@ class Integrator:
 
                 # odes for w, T and p
                 ode_co2[i] = (diff.get_term(ctx.w_co2, ctx.w_co2_surf, i, ctx.D_co2_eff[i])
-                              + reaction.get_mass_term(self.params.M_co2, ctx.roh[i], self.params.v_co2, r))
+                              + reaction.get_mass_term(self.params.M_co2, ctx.rho[i], self.params.v_co2, r))
                 ode_ch4[i] = (diff.get_term(ctx.w_ch4, ctx.w_ch4_surf, i, ctx.D_ch4_eff[i])
-                              + reaction.get_mass_term(self.params.M_ch4, ctx.roh[i], self.params.v_ch4, r))
+                              + reaction.get_mass_term(self.params.M_ch4, ctx.rho[i], self.params.v_ch4, r))
                 ode_h2[i] = (diff.get_term(ctx.w_h2, ctx.w_h2_surf, i, ctx.D_h2_eff[i])
-                             + reaction.get_mass_term(self.params.M_h2, ctx.roh[i], self.params.v_h2, r))
+                             + reaction.get_mass_term(self.params.M_h2, ctx.rho[i], self.params.v_h2, r))
                 ode_T[i] = heat_cond.get_term(i) + reaction.get_heat_term(ctx.T[i], r)
                 alg_p[i] = (self.params.M_0 * ctx.T[i]) / (ctx.M[i] * self.params.T_0) * self.params.p_0 - ctx.p[i]
 

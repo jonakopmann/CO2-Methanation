@@ -180,7 +180,7 @@ def get_ny_h2(T, p):
 
 
 def get_ny_ch4(T, p):
-    M_h2 = 16.0425  # [g/mol]
+    M_ch4 = 16.0425  # [g/mol]
     R = 8.314463  # [J/(mol*K)]
 
     A = -0.07759
@@ -189,11 +189,11 @@ def get_ny_ch4(T, p):
     D = 0.03118
     E = -0.00981
     return (1e9 * (A * 1e-5 + B * 1e-7 * T + C * 1e-10 * T ** 2 + D * 1e-12 * T ** 3 + E * 1e-15 * T ** 4)
-            / (p * 1e5 * M_h2 / (R * T)))  # [mm^2/s]
+            / (p * 1e5 * M_ch4 / (R * T)))  # [mm^2/s]
 
 
 def get_ny_h2o(T, p):
-    M_h2 = 18.0153  # [g/mol]
+    M_h2o = 18.0153  # [g/mol]
     R = 8.314463  # [J/(mol*K)]
 
     A = 0.64966
@@ -202,7 +202,7 @@ def get_ny_h2o(T, p):
     D = -0.10080
     E = 0.03100
     return (1e9 * (A * 1e-5 + B * 1e-7 * T + C * 1e-10 * T ** 2 + D * 1e-12 * T ** 3 + E * 1e-15 * T ** 4)
-            / (p * 1e5 * M_h2 / (R * T)))  # [mm^2/s]
+            / (p * 1e5 * M_h2o / (R * T)))  # [mm^2/s]
 
 
 def get_lambda_co2(T):

@@ -9,14 +9,14 @@ class Parameters:
     w_h2o_0 = 0
 
     # stoichiometric factors
-    v_h2 = -4
     v_co2 = -1
+    v_h2 = -4
     v_ch4 = 1
     v_h2o = 2
 
     # diffusion volumes from Fuller et al. 1969
-    delta_v_h2 = 6.12  # [cm^3]
     delta_v_co2 = 26.7  # [cm^3]
+    delta_v_h2 = 6.12  # [cm^3]
     delta_v_ch4 = 25.14  # [cm^3]
     delta_v_h2o = 13.1  # [cm^3]
 
@@ -28,21 +28,21 @@ class Parameters:
     M_0 = (w_co2_0 / M_co2 + w_h2_0 / M_h2 + w_ch4_0 / M_ch4 + w_h2o_0 / M_h2o) ** -1  # [g/mol]
 
     # dynamic const
-    delta_w = 0.1
+    delta_w = 0.06
     delta_T = 5
-    f_w = 1  # [1/s]
-    f_T = 0.7  # [1/s]
+    f_w = 0.6  # [1/s]
+    f_T = 0.8  # [1/s]
 
     # constants
     p_0 = 8  # [bar]
-    cp_s = 880e-3  # [J/(K*g)]
-    roh_s = 2350e3  # [g/m^3]
-    epsilon = 0.5
-    tau = 4
-    lambda_eff = 0.67e-3  # [W/(mm*K)]
+    cp_s = 1107e-3  # [J/(K*g)]
+    rho_s = 2355.2e3  # [g/m^3]
+    epsilon = 0.6
+    tau_sq = 4
+    lambda_eff = 3.6e-3  # [W/(mm*K)]
     n = 2
     R = 8.314463  # [J/(mol*K)]
-    d_pore = 15e-9  # [m]
+    d_pore = 10e-9  # [m]
 
     # reference values
     T_ref = 555  # [K]
@@ -57,13 +57,15 @@ class Parameters:
 
     # integration params
     r_steps = 100
-    r_max = 1.5  # [mm]
+    r_max = 1  # [mm]
     h = r_max / r_steps  # [mm]
-    T_0 = 525  # [K]
-    t_max = 5
+    T_0 = 533  # [K]
+
+    # time stuff
+    t_max = 10
     t_i = np.array('f')  # [s]
     x_min = 7
-    fps = 30
+    fps = 30  # [1/s]
 
-    # heat transfer
+    # feed speed
     v = 1000  # [mm/s]
