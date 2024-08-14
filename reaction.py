@@ -1,5 +1,4 @@
 from context import Context
-from parameters import Parameters
 from thermo import *
 
 

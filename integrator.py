@@ -1,3 +1,4 @@
+import os
 from abc import abstractmethod
 
 import casadi as ca
@@ -124,13 +125,15 @@ class Integrator:
         plotter = Plotter(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res, self.params)
 
         path = f'{folder}/fw-{self.params.f_w}_deltaw-{self.params.delta_w}_fT-{self.params.f_T}_deltaT-{self.params.delta_T}_t-{self.params.t_max}'
-        plotter.plot_X_co2('Conversion')
-        plotter.plot_w_co2_fl_surf()
-        plotter.plot_w_h2_fl_surf()
-        plotter.plot_T_fl_surf()
-        plotter.plot_cat_eff('Catalyst efficiency')
+        #plotter.plot_X_co2('Conversion')
+        #plotter.plot_w_co2_fl_surf()
+        #plotter.plot_w_h2_fl_surf()
+        #plotter.plot_T_fl_surf()
+        #plotter.plot_y_co2_fl_surf()
+        #plotter.plot_y_h2_fl_surf()
+        #plotter.plot_cat_eff('Catalyst efficiency')
         #plotter.plot_cat_eff_thiele('')
-        #plotter.animate_w(os.path.join(path, 'weight.mp4'), 'Mass fractions over time', 1)
-        # plotter.animate_T(os.path.join(path, 'temp.mp4'), 'Temperature over time', 1, )
-        # plotter.animate_Y(os.path.join(path, 'yield.mp4'), 'Yield over time', 1)
+        plotter.animate_w(os.path.join(path, 'weight.mp4'), 'Mass fractions over time', 1)
+        plotter.animate_T(os.path.join(path, 'temp.mp4'), 'Temperature over time', 1, )
+        plotter.animate_Y(os.path.join(path, 'yield.mp4'), 'Yield over time', 1)
         #plotter.animate_y(os.path.join(path, 'mole.mp4'), 'Mole fractions over time', 1)

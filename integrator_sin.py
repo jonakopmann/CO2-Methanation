@@ -1,9 +1,7 @@
 import casadi as ca
-import numpy as np
 
 from context import Context
 from integrator import Integrator
-from plotter import Plotter
 
 
 class IntegratorSin(Integrator):

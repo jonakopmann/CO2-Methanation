@@ -2,7 +2,6 @@ import os.path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import casadi as ca
 from cmcrameri import cm
 from matplotlib import animation
 from matplotlib.ticker import AutoMinorLocator
@@ -60,6 +59,9 @@ class Plotter:
                 + self.w_ch4_fl / self.params.M_ch4 + self.w_h2o_fl / self.params.M_h2o) ** -1
         rho_fl = self.p[-1] * 1e5 * M_fl / (self.params.R * self.T_fl)
         rho_surf = self.p[-1] * 1e5 * self.M[-1, :] / (self.params.R * self.T[-1, :])
+
+        self.y_co2_fl = w_to_y(self.w_co2_fl, self.params.M_co2, M_fl)
+        self.y_h2_fl = w_to_y(self.w_h2_fl, self.params.M_h2, M_fl)
 
         A = np.pi * (self.params.r_max * 1.02) ** 2  # [mm^2]
         self.n_in = self.params.v * self.w_co2_fl * 1e-9 * rho_fl / self.params.M_co2 * A
@@ -331,7 +333,7 @@ class Plotter:
         ax.set_xlim(min(self.r), max(self.r))
         ax.set_ylim(0, 1)
 
-        line, = ax.plot(self.r, (self.y_ch4[:, 0] - self.y_ch4[:, 0]) / self.y_co2[:, 0] * self.v_co2 / self.v_ch4)
+        line, = ax.plot(self.r, (self.y_ch4[:, 0] - self.y_ch4[:, 0]) / self.y_co2[:, 0] * self.params.v_co2 / self.params.v_ch4)
 
         # add a text element to display the time
         time_text = ax.text(0.2, 0.9, 't = {:.2f}'.format(self.t[0]), transform=ax.transAxes)
@@ -345,7 +347,7 @@ class Plotter:
         ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         def anim(t):
-            line.set_ydata((self.y_ch4[:, 0] - self.y_ch4[:, t]) / self.y_co2[:, 0] * self.v_co2 / self.v_ch4)
+            line.set_ydata((self.y_ch4[:, 0] - self.y_ch4[:, t]) / self.y_co2[:, 0] * self.params.v_co2 / self.params.v_ch4)
             time_text.set_text('t = {:.2f}'.format(self.t[t]))  # update the time text
 
         ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t),
@@ -485,12 +487,20 @@ class Plotter:
         axs[0].set_ylim(y_min - 0.05 * (y_max - y_min), y_max + 0.05 * (y_max - y_min))
         axs[1].set_ylim(y_min - 0.05 * (y_max - y_min), y_max + 0.05 * (y_max - y_min))
 
+        axs[0].set_xlim(np.min(self.t), np.max(self.t))
+        axs[1].set_xlim(np.min(self.t), np.max(self.t))
+
         axs[0].plot(self.t, self.T_fl.flatten())
-        axs[0].set_ylabel('T / K')
+        axs[0].set_ylabel(r'$T_{\infty} / K$')
+        axs[0].set_xticklabels([])
+        axs[0].xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        axs[0].yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         axs[1].plot(self.t, self.T[0, :].flatten())
-        axs[1].set_ylabel('T / K')
+        axs[1].set_ylabel(r'$T_{r = 0} / K$')
         axs[1].set_xlabel('t / s')
+        axs[1].xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        axs[1].yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         fig.show()
 
@@ -499,12 +509,20 @@ class Plotter:
         axs[0].set_ylim(0, 1)
         axs[1].set_ylim(0, 1)
 
+        axs[0].set_xlim(np.min(self.t), np.max(self.t))
+        axs[1].set_xlim(np.min(self.t), np.max(self.t))
+
         axs[0].plot(self.t, self.w_co2_fl.flatten())
-        axs[0].set_ylabel(r'$w_{\mathrm{CO_2}}$')
+        axs[0].set_ylabel(r'$w_{\mathrm{CO_2}, \infty}$')
+        axs[0].set_xticklabels([])
+        axs[0].xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        axs[0].yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         axs[1].plot(self.t, self.w_co2[0, :].flatten())
-        axs[1].set_ylabel(r'$w_{\mathrm{CO_2}}$')
+        axs[1].set_ylabel(r'$w_{\mathrm{CO_2}, r = 0}$')
         axs[1].set_xlabel('t / s')
+        axs[1].xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        axs[1].yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         fig.show()
 
@@ -513,11 +531,63 @@ class Plotter:
         axs[0].set_ylim(0, 1)
         axs[1].set_ylim(0, 1)
 
+        axs[0].set_xlim(np.min(self.t), np.max(self.t))
+        axs[1].set_xlim(np.min(self.t), np.max(self.t))
+
         axs[0].plot(self.t, self.w_h2_fl.flatten())
-        axs[0].set_ylabel(r'$w_{\mathrm{H_2}}$')
+        axs[0].set_ylabel(r'$w_{\mathrm{H_2}, \infty}$')
+        axs[0].set_xticklabels([])
+        axs[0].xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        axs[0].yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         axs[1].plot(self.t, self.w_h2[0, :].flatten())
-        axs[1].set_ylabel(r'$w_{\mathrm{H_2}}$')
+        axs[1].set_ylabel(r'$w_{\mathrm{H_2}, t = 0}$')
         axs[1].set_xlabel('Time / s')
+        axs[1].xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        axs[1].yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        fig.show()
+
+    def plot_y_co2_fl_surf(self):
+        fig, axs = plt.subplots(2, 1)
+        axs[0].set_ylim(0, 1)
+        axs[1].set_ylim(0, 1)
+
+        axs[0].set_xlim(np.min(self.t), np.max(self.t))
+        axs[1].set_xlim(np.min(self.t), np.max(self.t))
+
+        axs[0].plot(self.t, self.y_co2_fl.flatten())
+        axs[0].set_ylabel(r'$y_{\mathrm{CO_2}, \infty}$')
+        axs[0].set_xticklabels([])
+        axs[0].xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        axs[0].yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        axs[1].plot(self.t, self.y_co2[0, :].flatten())
+        axs[1].set_ylabel(r'$y_{\mathrm{CO_2}, r = 0}$')
+        axs[1].set_xlabel('t / s')
+        axs[1].xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        axs[1].yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        fig.show()
+
+    def plot_y_h2_fl_surf(self):
+        fig, axs = plt.subplots(2, 1)
+        axs[0].set_ylim(0, 1)
+        axs[1].set_ylim(0, 1)
+
+        axs[0].set_xlim(np.min(self.t), np.max(self.t))
+        axs[1].set_xlim(np.min(self.t), np.max(self.t))
+
+        axs[0].plot(self.t, self.y_h2_fl.flatten())
+        axs[0].set_ylabel(r'$y_{\mathrm{H_2}, \infty}$')
+        axs[0].set_xticklabels([])
+        axs[0].xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        axs[0].yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        axs[1].plot(self.t, self.y_h2[0, :].flatten())
+        axs[1].set_ylabel(r'$y_{\mathrm{H_2}, t = 0}$')
+        axs[1].set_xlabel('Time / s')
+        axs[1].xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        axs[1].yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         fig.show()

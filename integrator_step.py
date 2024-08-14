@@ -1,11 +1,8 @@
-import os
-
 import casadi as ca
 import numpy as np
 
 from context import Context
 from integrator import Integrator
-from plotter import Plotter
 from slice import Slice
 
 

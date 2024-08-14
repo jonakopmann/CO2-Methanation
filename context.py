@@ -1,5 +1,3 @@
-import casadi as ca
-
 from parameters import Parameters
 from thermo import *
 
