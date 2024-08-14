@@ -1,24 +1,25 @@
+import casadi as ca
 import numpy as np
 
 
 class Parameters:
-    # start mole fractions
+    # start mass fractions
+    w_ar_0 = 0
     w_h2_0 = 0.15
     w_co2_0 = 0.85
     w_ch4_0 = 0
-    w_h2o_0 = 0
-    w_ar = 1 - w_h2_0 - w_co2_0 - w_ch4_0 - w_h2o_0
+    w_h2o_0 = 1 - w_h2_0 - w_co2_0 - w_ch4_0 - w_ar_0
 
     # stoichiometric factors
-    v_h2 = -4
     v_co2 = -1
+    v_h2 = -4
     v_ch4 = 1
     v_h2o = 2
 
-    # diffusion volumes
-    delta_v_h2 = 6.12  # [cm^3]
+    # diffusion volumes from Fuller et al. 1969
     delta_v_co2 = 26.7  # [cm^3]
-    delta_v_ch4 = 25.14  # [cm^3] TODO: not found in perrys book
+    delta_v_h2 = 6.12  # [cm^3]
+    delta_v_ch4 = 25.14  # [cm^3]
     delta_v_h2o = 13.1  # [cm^3]
 
     # molar masses
@@ -29,22 +30,21 @@ class Parameters:
     M_0 = (w_co2_0 / M_co2 + w_h2_0 / M_h2 + w_ch4_0 / M_ch4 + w_h2o_0 / M_h2o) ** -1  # [g/mol]
 
     # dynamic const
-    delta_y = 0.05
-    delta_T = 0
-    f_y = 2  # [1/s]
-    f_T = 0.7  # [1/s]
+    delta_w = 0.06
+    delta_T = 5
+    f_w = 0.6  # [1/s]
+    f_T = 0.8  # [1/s]
 
     # constants
     p_0 = 8  # [bar]
-    c_p = 880e-3  # [J/(K*g)]
-    roh_s = 2350e3  # [g/m^3]
-    epsilon = 0.5
-    tau = 4
-    D_i_eff = 1  # [mm^2/s]
-    lambda_eff = 0.67e-3  # [W/(mm*K)]
+    cp_s = 1107e-3  # [J/(K*g)] (nonporous)
+    rho_s = 2355.2e3  # [g/m^3] (porous)
+    epsilon = 0.6
+    tau_sq = 4
+    lambda_eff = 3.6e-3  # [W/(mm*K)]
     n = 2
     R = 8.314463  # [J/(mol*K)]
-    d_pore = 15e-9  # [m]
+    d_pore = 10e-9  # [m]
 
     # reference values
     T_ref = 555  # [K]
@@ -59,8 +59,22 @@ class Parameters:
 
     # integration params
     r_steps = 100
-    r_max = 1.5  # [mm]
+    r_max = 1  # [mm]
     h = r_max / r_steps  # [mm]
-    T_0 = 525  # [K]
-    t_steps = 100
-    t_i = np.linspace(0, 1, t_steps)  # [s]
+    T_0 = 533  # [K]
+
+    # time stuff
+    t_max = 10
+    t_steps = 300
+    t_i = np.linspace(0, t_max, t_steps)  # [s]
+    x_min = 7
+    fps = 30  # [1/s]
+
+    # feed speed
+    v = 1000  # [mm/s]
+
+    # start conditions
+    x0 = ca.vertcat(np.full(r_steps, w_co2_0), np.full(r_steps, w_ch4_0), np.full(r_steps, w_h2_0),
+                    np.full(r_steps, T_0))
+    z0 = ca.vertcat(w_co2_0, w_ch4_0, w_h2_0, T_0, w_co2_0, w_ch4_0, w_h2_0, T_0,  np.full(r_steps, 1),
+                    np.full(r_steps, 1), np.full(r_steps, 1), np.full(r_steps, 1))
