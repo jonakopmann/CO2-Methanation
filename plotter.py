@@ -48,8 +48,8 @@ class Plotter:
         self.y_ch4 = w_to_y(self.w_ch4, self.params.M_ch4, self.M)
         self.y_h2o = w_to_y(self.w_h2o, self.params.M_h2o, self.M)
 
-        ny_fl = (self.w_co2_fl * get_ny_co2(self.T_fl, self.p[-1]) + self.w_h2_fl * get_ny_h2(self.T_fl, self.p[-1])
-                 + self.w_ch4_fl * get_ny_ch4(self.T_fl, self.p[-1]) + self.w_h2o_fl * get_ny_h2o(self.T_fl, self.p[-1]))  # [mm^2/s]
+        ny_fl = (self.w_co2_fl * get_eta_co2(self.T_fl) + self.w_h2_fl * get_eta_h2(self.T_fl)
+                 + self.w_ch4_fl * get_eta_ch4(self.T_fl) + self.w_h2o_fl * get_eta_h2o(self.T_fl))  # [mm^2/s]
         Re = self.params.v * self.params.r_max * 2 / ny_fl
         Sc_co2 = ny_fl / self.D_co2_eff[-1]
         Sh_co2 = 2 + 0.6 * Re ** 0.5 + Sc_co2 ** (1 / 3)

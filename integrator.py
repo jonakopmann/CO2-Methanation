@@ -85,7 +85,7 @@ class Integrator:
                           + reaction.get_mass_term(self.params.M_ch4, ctx.rho[i], self.params.v_ch4, r))
             ode_h2[i] = (diff.get_term(ctx.w_h2, ctx.w_h2_surf, i, ctx.D_h2_eff[i])
                          + reaction.get_mass_term(self.params.M_h2, ctx.rho[i], self.params.v_h2, r))
-            ode_T[i] = heat_cond.get_term(i) + reaction.get_heat_term(ctx.T[i], r)
+            ode_T[i] = heat_cond.get_term(i) + reaction.get_heat_term(i, r)
             alg_p[i] = (self.params.M_0 * ctx.T[i]) / (ctx.M[i] * self.params.T_0) * self.params.p_0 - ctx.p[i]
 
             # init binary diffusion coefficients

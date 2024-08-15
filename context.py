@@ -50,29 +50,37 @@ class Context:
         self.D_h2_eff = ca.SX.sym('D_h2_eff', self.params.r_steps)
 
         # heat transfer
-        cp_fl = (self.w_co2_fl * get_cp_co2(self.T_fl) + self.w_h2_fl * get_cp_h2(self.T_fl)
-                 + self.w_ch4_fl * get_cp_ch4(self.T_fl) + self.w_h2o_fl * get_cp_h2o(self.T_fl))  # [J/(g*K)]
+        self.cp = self.params.R * (self.w_co2 * get_cp_co2(self.T) / self.params.M_co2
+                                   + self.w_h2 * get_cp_h2(self.T) / self.params.M_h2
+                                   + self.w_ch4 * get_cp_ch4(self.T) / self.params.M_ch4
+                                   + self.w_h2o * get_cp_h2o(self.T) / self.params.M_h2o)  # [J/(g*K)]
+        cp_fl = self.params.R * (self.w_co2_fl * get_cp_co2(self.T_fl) / self.params.M_co2
+                                 + self.w_h2_fl * get_cp_h2(self.T_fl) / self.params.M_h2
+                                 + self.w_ch4_fl * get_cp_ch4(self.T_fl) / self.params.M_ch4
+                                 + self.w_h2o_fl * get_cp_h2o(self.T_fl) / self.params.M_h2o)  # [J/(g*K)]
 
-        ny_fl = (self.w_co2_fl * get_ny_co2(self.T_fl, self.p[-1]) + self.w_h2_fl * get_ny_h2(self.T_fl, self.p[-1])
-                 + self.w_ch4_fl * get_ny_ch4(self.T_fl, self.p[-1]) + self.w_h2o_fl * get_ny_h2o(self.T_fl, self.p[-1]))  # [mm^2/s]
+        nu_fl = (1e9 / self.rho_fl
+                 * (self.w_co2_fl * get_eta_co2(self.T_fl) + self.w_h2_fl * get_eta_h2(self.T_fl)
+                    + self.w_ch4_fl * get_eta_ch4(self.T_fl) + self.w_h2o_fl * get_eta_h2o(self.T_fl)))  # [mm^2/s]
 
         lambda_fl = (self.w_co2_fl * get_lambda_co2(self.T_fl) + self.w_h2_fl * get_lambda_h2(self.T_fl)
-                     + self.w_ch4_fl * get_lambda_ch4(self.T_fl) + self.w_h2o_fl * get_lambda_h2o(self.T_fl))  # [W/(mm*K)]
+                     + self.w_ch4_fl * get_lambda_ch4(self.T_fl) + self.w_h2o_fl * get_lambda_h2o(
+                    self.T_fl))  # [W/(mm*K)]
 
-        Re = self.params.v * self.params.r_max * 2 / ny_fl
-        Pr = ny_fl / lambda_fl * cp_fl * self.rho_fl * 1e-9
+        Re = self.params.v * self.params.r_max * 2 / nu_fl
+        Pr = nu_fl / lambda_fl * cp_fl * self.rho_fl * 1e-9
         Nu = 2 + 0.6 * Re ** 0.5 + Pr ** (1 / 3)
         self.alpha = Nu * lambda_fl / (2 * self.params.r_max)  # [W/(mm^2*K)]
 
         # species transfer
-        Sc_co2 = ny_fl / self.D_co2_eff[-1]
+        Sc_co2 = nu_fl / self.D_co2_eff[-1]
         Sh_co2 = 2 + 0.6 * Re ** 0.5 + Sc_co2 ** (1 / 3)
         self.beta_co2 = Sh_co2 * self.D_co2_eff[-1] / (2 * self.params.r_max)  # [mm/s]
 
-        Sc_h2 = ny_fl / self.D_h2_eff[-1]
+        Sc_h2 = nu_fl / self.D_h2_eff[-1]
         Sh_h2 = 2 + 0.6 * Re ** 0.5 + Sc_h2 ** (1 / 3)
         self.beta_h2 = Sh_h2 * self.D_h2_eff[-1] / (2 * self.params.r_max)  # [mm/s]
 
-        Sc_ch4 = ny_fl / self.D_ch4_eff[-1]
+        Sc_ch4 = nu_fl / self.D_ch4_eff[-1]
         Sh_ch4 = 2 + 0.6 * Re ** 0.5 + Sc_ch4 ** (1 / 3)
         self.beta_ch4 = Sh_ch4 * self.D_ch4_eff[-1] / (2 * self.params.r_max)  # [mm/s]

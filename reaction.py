@@ -64,5 +64,6 @@ class Reaction:
     def get_mass_term(self, M_i, rho_g, v_i, r):
         return ((1 - self.params.epsilon) / self.params.epsilon) * M_i / rho_g * self.params.rho_s * v_i * r
 
-    def get_heat_term(self, T, r):
-        return -self.get_H_R(T) / self.params.cp_s * r
+    def get_heat_term(self, i, r):
+        return (-self.get_H_R(self.ctx.T[i]) * (1 - self.params.epsilon) * self.params.rho_s
+                / ((1 - self.params.epsilon) * self.params.rho_s * self.params.cp_s + self.params.epsilon * self.ctx.rho[i] * self.ctx.cp[i]) * r)
