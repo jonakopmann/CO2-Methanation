@@ -97,10 +97,10 @@ class IntegratorStep(Integrator):
     def get_ode_fl(self, ctx: Context):
         if self.s.w:
             alg_co2_fl = (self.params.w_co2_0 + self.params.delta_w - ctx.w_co2_fl)
-            alg_h2_fl = (self.params.w_h2_0 - self.params.delta_w - ctx.w_h2_fl)
+            alg_h2_fl = (self.params.w_h2_0 - self.params.delta_w - ctx.w_h2o_fl)
         else:
             alg_co2_fl = (self.params.w_co2_0 - self.params.delta_w - ctx.w_co2_fl)
-            alg_h2_fl = (self.params.w_h2_0 + self.params.delta_w - ctx.w_h2_fl)
+            alg_h2_fl = (self.params.w_h2_0 + self.params.delta_w - ctx.w_h2o_fl)
         if self.s.T:
             alg_T_fl = self.params.T_0 + self.params.delta_T - ctx.T_fl
         else:

@@ -11,8 +11,8 @@ class Context:
 
         self.w_co2 = ca.SX.sym('w_co2', self.params.r_steps)
         self.w_ch4 = ca.SX.sym('w_ch4', self.params.r_steps)
-        self.w_h2 = ca.SX.sym('w_h2', self.params.r_steps)
-        self.w_h2o = 1 - self.w_co2 - self.w_ch4 - self.w_h2
+        self.w_h2o = ca.SX.sym('w_h2o', self.params.r_steps)
+        self.w_h2 = 1 - self.w_co2 - self.w_ch4 - self.w_h2o
         self.T = ca.SX.sym('T', self.params.r_steps)
         self.M = (self.w_co2 / self.params.M_co2 + self.w_h2 / self.params.M_h2
                   + self.w_ch4 / self.params.M_ch4 + self.w_h2o / self.params.M_h2o) ** -1
@@ -26,9 +26,9 @@ class Context:
 
         # surface
         self.w_co2_surf = ca.SX.sym('w_co2_surf')
-        self.w_h2_surf = ca.SX.sym('w_h2_surf')
+        self.w_h2o_surf = ca.SX.sym('w_h2o_surf')
         self.w_ch4_surf = ca.SX.sym('w_ch4_surf')
-        self.w_h2o_surf = 1 - self.w_co2_surf - self.w_h2_surf - self.w_ch4_surf
+        self.w_h2_surf = 1 - self.w_co2_surf - self.w_h2o_surf - self.w_ch4_surf
         self.T_surf = ca.SX.sym('T_surf')
         self.M_surf = (self.w_co2_surf / self.params.M_co2 + self.w_h2_surf / self.params.M_h2
                        + self.w_ch4_surf / self.params.M_ch4 + self.w_h2o_surf / self.params.M_h2o) ** -1
@@ -36,9 +36,9 @@ class Context:
 
         # fluid
         self.w_co2_fl = ca.SX.sym('w_co2_fl')
-        self.w_h2_fl = ca.SX.sym('w_h2_fl')
+        self.w_h2o_fl = ca.SX.sym('w_h2o_fl')
         self.w_ch4_fl = ca.SX.sym('w_ch4_fl')
-        self.w_h2o_fl = 1 - self.w_co2_fl - self.w_h2_fl - self.w_ch4_fl
+        self.w_h2_fl = 1 - self.w_co2_fl - self.w_h2o_fl - self.w_ch4_fl
         self.T_fl = ca.SX.sym('T_fl')
         self.M_fl = (self.w_co2_fl / self.params.M_co2 + self.w_h2_fl / self.params.M_h2
                      + self.w_ch4_fl / self.params.M_ch4 + self.w_h2o_fl / self.params.M_h2o) ** -1
@@ -47,7 +47,7 @@ class Context:
         # diffusion
         self.D_co2_eff = ca.SX.sym('D_co2_eff', self.params.r_steps)
         self.D_ch4_eff = ca.SX.sym('D_ch4_eff', self.params.r_steps)
-        self.D_h2_eff = ca.SX.sym('D_h2_eff', self.params.r_steps)
+        self.D_h2o_eff = ca.SX.sym('D_h2o_eff', self.params.r_steps)
 
         # heat transfer
         self.cp = self.params.R * (self.w_co2 * get_cp_co2(self.T) / self.params.M_co2
@@ -77,9 +77,9 @@ class Context:
         Sh_co2 = 2 + 0.6 * Re ** 0.5 + Sc_co2 ** (1 / 3)
         self.beta_co2 = Sh_co2 * self.D_co2_eff[-1] / (2 * self.params.r_max)  # [mm/s]
 
-        Sc_h2 = nu_fl / self.D_h2_eff[-1]
+        Sc_h2 = nu_fl / self.D_h2o_eff[-1]
         Sh_h2 = 2 + 0.6 * Re ** 0.5 + Sc_h2 ** (1 / 3)
-        self.beta_h2 = Sh_h2 * self.D_h2_eff[-1] / (2 * self.params.r_max)  # [mm/s]
+        self.beta_h2 = Sh_h2 * self.D_h2o_eff[-1] / (2 * self.params.r_max)  # [mm/s]
 
         Sc_ch4 = nu_fl / self.D_ch4_eff[-1]
         Sh_ch4 = 2 + 0.6 * Re ** 0.5 + Sc_ch4 ** (1 / 3)

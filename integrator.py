@@ -49,16 +49,16 @@ class Integrator:
         # create ode variables
         ode_co2 = ca.SX(self.params.r_steps, 1)
         ode_ch4 = ca.SX(self.params.r_steps, 1)
-        ode_h2 = ca.SX(self.params.r_steps, 1)
+        ode_h2o = ca.SX(self.params.r_steps, 1)
         ode_T = ca.SX(self.params.r_steps, 1)
         alg_p = ca.SX(self.params.r_steps, 1)
 
         alg_D_co2 = ca.SX(self.params.r_steps, 1)
         alg_D_ch4 = ca.SX(self.params.r_steps, 1)
-        alg_D_h2 = ca.SX(self.params.r_steps, 1)
+        alg_D_h2o = ca.SX(self.params.r_steps, 1)
 
         # make input dyńamic
-        alg_co2_fl, alg_h2_fl, alg_ch4_fl, alg_T_fl = self.get_ode_fl(ctx)
+        alg_co2_fl, alg_h2o_fl, alg_ch4_fl, alg_T_fl = self.get_ode_fl(ctx)
 
         # create boundary conditions for the surface values
         alg_co2_surf = (ctx.w_co2_fl * ctx.rho_fl - ctx.D_co2_eff[-1] / ctx.beta_co2
@@ -67,9 +67,9 @@ class Integrator:
         alg_ch4_surf = (ctx.w_ch4_fl * ctx.rho_fl - ctx.D_ch4_eff[-1] / ctx.beta_ch4
                         * (ctx.w_ch4_surf * ctx.rho_surf - ctx.w_ch4[-1] * ctx.rho[-1]) / self.params.h
                         - ctx.w_ch4_surf * ctx.rho_surf)
-        alg_h2_surf = (ctx.w_h2_fl * ctx.rho_fl - ctx.D_h2_eff[-1] / ctx.beta_h2
-                       * (ctx.w_h2_surf * ctx.rho_surf - ctx.w_h2[-1] * ctx.rho[-1]) / self.params.h
-                       - ctx.w_h2_surf * ctx.rho_surf)
+        alg_h2o_surf = (ctx.w_h2o_fl * ctx.rho_fl - ctx.D_h2o_eff[-1] / ctx.beta_h2
+                        * (ctx.w_h2o_surf * ctx.rho_surf - ctx.w_h2o[-1] * ctx.rho[-1]) / self.params.h
+                        - ctx.w_h2o_surf * ctx.rho_surf)
         alg_T_surf = (ctx.T_fl - self.params.lambda_eff / ctx.alpha * (ctx.T_surf - ctx.T[-1]) / self.params.h
                       - ctx.T_surf)
 
@@ -83,8 +83,8 @@ class Integrator:
                           + reaction.get_mass_term(self.params.M_co2, ctx.rho[i], self.params.v_co2, r))
             ode_ch4[i] = (diff.get_term(ctx.w_ch4, ctx.w_ch4_surf, i, ctx.D_ch4_eff[i])
                           + reaction.get_mass_term(self.params.M_ch4, ctx.rho[i], self.params.v_ch4, r))
-            ode_h2[i] = (diff.get_term(ctx.w_h2, ctx.w_h2_surf, i, ctx.D_h2_eff[i])
-                         + reaction.get_mass_term(self.params.M_h2, ctx.rho[i], self.params.v_h2, r))
+            ode_h2o[i] = (diff.get_term(ctx.w_h2o, ctx.w_h2o_surf, i, ctx.D_h2o_eff[i])
+                          + reaction.get_mass_term(self.params.M_h2o, ctx.rho[i], self.params.v_h2o, r))
             ode_T[i] = heat_cond.get_term(i) + reaction.get_heat_term(i, r)
             alg_p[i] = (self.params.M_0 * ctx.T[i]) / (ctx.M[i] * self.params.T_0) * self.params.p_0 - ctx.p[i]
 
@@ -93,20 +93,20 @@ class Integrator:
 
             # alg for D_i_eff
             alg_D_co2[i] = diff_i_eff.get_D_co2(i) - ctx.D_co2_eff[i]
-            alg_D_h2[i] = diff_i_eff.get_D_h2(i) - ctx.D_h2_eff[i]
+            alg_D_h2o[i] = diff_i_eff.get_D_h2o(i) - ctx.D_h2o_eff[i]
             alg_D_ch4[i] = diff_i_eff.get_D_ch4(i) - ctx.D_ch4_eff[i]
 
         # create integrator
         dae = {
-            'x': ca.veccat(ctx.w_co2, ctx.w_ch4, ctx.w_h2, ctx.T),
-            'z': ca.vertcat(ctx.w_co2_surf, ctx.w_ch4_surf, ctx.w_h2_surf, ctx.T_surf,
-                            ctx.w_co2_fl, ctx.w_ch4_fl, ctx.w_h2_fl, ctx.T_fl,
-                            ctx.D_co2_eff, ctx.D_ch4_eff, ctx.D_h2_eff, ctx.p),
+            'x': ca.veccat(ctx.w_co2, ctx.w_ch4, ctx.w_h2o, ctx.T),
+            'z': ca.vertcat(ctx.w_co2_surf, ctx.w_ch4_surf, ctx.w_h2o_surf, ctx.T_surf,
+                            ctx.w_co2_fl, ctx.w_ch4_fl, ctx.w_h2o_fl, ctx.T_fl,
+                            ctx.D_co2_eff, ctx.D_ch4_eff, ctx.D_h2o_eff, ctx.p),
             't': ctx.t,
-            'ode': ca.vertcat(ode_co2, ode_ch4, ode_h2, ode_T),
-            'alg': ca.vertcat(alg_co2_surf, alg_ch4_surf, alg_h2_surf, alg_T_surf,
-                              alg_co2_fl, alg_ch4_fl, alg_h2_fl, alg_T_fl,
-                              alg_D_co2, alg_D_ch4, alg_D_h2, alg_p)
+            'ode': ca.vertcat(ode_co2, ode_ch4, ode_h2o, ode_T),
+            'alg': ca.vertcat(alg_co2_surf, alg_ch4_surf, alg_h2o_surf, alg_T_surf,
+                              alg_co2_fl, alg_ch4_fl, alg_h2o_fl, alg_T_fl,
+                              alg_D_co2, alg_D_ch4, alg_D_h2o, alg_p)
         }
 
         options = {'regularity_check': True}

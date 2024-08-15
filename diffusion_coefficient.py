@@ -46,11 +46,11 @@ class DiffusionCoefficient:
                                        self.ctx.y_h2o[r], self.D_co2_h2, self.D_co2_ch4, self.D_co2_h2o)
                     + 1e-6 / self.get_D_i_Kn(self.ctx.T[r], self.params.M_co2)) ** -1))
 
-    def get_D_h2(self, r):
+    def get_D_h2o(self, r):
         return ((self.params.epsilon / self.params.tau_sq
-                 * (1 / self.get_D_i_m(self.ctx.y_h2[r], self.ctx.y_co2[r], self.ctx.y_ch4[r],
-                                       self.ctx.y_h2o[r], self.D_co2_h2, self.D_h2_ch4, self.D_h2_h2o)
-                    + 1e-6 / self.get_D_i_Kn(self.ctx.T[r], self.params.M_h2)) ** -1))
+                 * (1 / self.get_D_i_m(self.ctx.y_h2o[r], self.ctx.y_co2[r], self.ctx.y_ch4[r],
+                                       self.ctx.y_h2[r], self.D_co2_h2o, self.D_ch4_h2o, self.D_h2_h2o)
+                    + 1e-6 / self.get_D_i_Kn(self.ctx.T[r], self.params.M_h2o)) ** -1))
 
     def get_D_ch4(self, r):
         return ((self.params.epsilon / self.params.tau_sq

@@ -8,7 +8,7 @@ class Parameters:
     w_h2_0 = 0.15
     w_co2_0 = 0.85
     w_ch4_0 = 0
-    w_h2o_0 = 1 - w_h2_0 - w_co2_0 - w_ch4_0 - w_ar_0
+    w_h2o_0 = 0
 
     # stoichiometric factors
     v_co2 = -1
@@ -74,7 +74,7 @@ class Parameters:
     v = 1000  # [mm/s]
 
     # start conditions
-    x0 = ca.vertcat(np.full(r_steps, w_co2_0), np.full(r_steps, w_ch4_0), np.full(r_steps, w_h2_0),
+    x0 = ca.vertcat(np.full(r_steps, w_co2_0), np.full(r_steps, w_ch4_0), np.full(r_steps, w_h2o_0),
                     np.full(r_steps, T_0))
-    z0 = ca.vertcat(w_co2_0, w_ch4_0, w_h2_0, T_0, w_co2_0, w_ch4_0, w_h2_0, T_0,  np.full(r_steps, 1),
+    z0 = ca.vertcat(w_co2_0, w_ch4_0, w_h2o_0, T_0, w_co2_0, w_ch4_0, w_h2o_0, T_0,  np.full(r_steps, 1),
                     np.full(r_steps, 1), np.full(r_steps, 1), np.full(r_steps, 1))
