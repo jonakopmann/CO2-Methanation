@@ -151,7 +151,7 @@ def get_eta_co2(T):
     C = -0.37108
     D = 0.01586
     E = -0.00300
-    return A * 1e-5 + B * 1e-7 * T + C * 1e-10 * T ** 2 + D * 1e-12 * T ** 3 + E * 1e-15 * T ** 4  # [Pa/s]
+    return A * 1e-5 + B * 1e-7 * T + C * 1e-10 * T ** 2 + D * 1e-12 * T ** 3 + E * 1e-15 * T ** 4  # [Pa*s]
 
 
 def get_eta_h2(T):
@@ -160,7 +160,7 @@ def get_eta_h2(T):
     C = -0.13395
     D = 0.00585
     E = -0.00104
-    return A * 1e-5 + B * 1e-7 * T + C * 1e-10 * T ** 2 + D * 1e-12 * T ** 3 + E * 1e-15 * T ** 4  # [Pa/s]
+    return A * 1e-5 + B * 1e-7 * T + C * 1e-10 * T ** 2 + D * 1e-12 * T ** 3 + E * 1e-15 * T ** 4  # [Pa*s]
 
 
 def get_eta_ch4(T):
@@ -169,7 +169,7 @@ def get_eta_ch4(T):
     C = -0.43101
     D = 0.03118
     E = -0.00981
-    return A * 1e-5 + B * 1e-7 * T + C * 1e-10 * T ** 2 + D * 1e-12 * T ** 3 + E * 1e-15 * T ** 4  # [Pa/s]
+    return A * 1e-5 + B * 1e-7 * T + C * 1e-10 * T ** 2 + D * 1e-12 * T ** 3 + E * 1e-15 * T ** 4  # [Pa*s]
 
 
 def get_eta_h2o(T):
@@ -178,7 +178,7 @@ def get_eta_h2o(T):
     C = 1.15935
     D = -0.10080
     E = 0.03100
-    return A * 1e-5 + B * 1e-7 * T + C * 1e-10 * T ** 2 + D * 1e-12 * T ** 3 + E * 1e-15 * T ** 4  # [Pa/s]
+    return A * 1e-5 + B * 1e-7 * T + C * 1e-10 * T ** 2 + D * 1e-12 * T ** 3 + E * 1e-15 * T ** 4  # [Pa*s]
 
 
 def get_lambda_co2(T):
