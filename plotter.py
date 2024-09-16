@@ -122,7 +122,7 @@ class Plotter:
         ax.plot(self.r, self.w_h2o[:, t], label=r'$w_{\ce{H2O}}$', color=self.colors[4])
 
         # set title
-        ax.set_xlabel('r / mm')
+        ax.set_xlabel('$r$ / mm')
         ax.set_ylabel(r'$w_i$')
         ax.legend(frameon=True, fancybox=False, loc='best', ncol=1, framealpha=1, edgecolor='black')
         ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
