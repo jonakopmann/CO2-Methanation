@@ -1,6 +1,7 @@
 import os.path
 
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import numpy as np
 from cmcrameri import cm
 from matplotlib import animation
@@ -38,6 +39,7 @@ class Plotter:
         # Colors
         self.colors = plt.cm.Dark2(np.linspace(0, 1, 8))
         self.cmap = cm.bamako
+        self.fig_pad = 0.1
 
         self.M = (self.w_co2 / self.params.M_co2 + self.w_h2 / self.params.M_h2
              + self.w_ch4 / self.params.M_ch4 + self.w_h2o / self.params.M_h2o) ** -1
@@ -62,6 +64,7 @@ class Plotter:
 
         self.y_co2_fl = w_to_y(self.w_co2_fl, self.params.M_co2, M_fl)
         self.y_h2_fl = w_to_y(self.w_h2_fl, self.params.M_h2, M_fl)
+        self.y_h20_fl = w_to_y(self.w_h2o_fl, self.params.M_h2o, M_fl)
 
         A = np.pi * (self.params.r_max * 1.02) ** 2  # [mm^2]
         self.n_in = self.params.v * self.w_co2_fl * 1e-9 * rho_fl / self.params.M_co2 * A
@@ -70,8 +73,14 @@ class Plotter:
                         * 4 * np.pi * self.params.r_max ** 2)
 
     def set_params(self):
-        # plt.rcParams['figure.figsize'] = (fig_w, fig_h)
+        plt.rcParams['figure.figsize'] = (3.5, 3.5)
         plt.rcParams['axes.linewidth'] = 1  # set the value globally
+        mpl.use('pgf')
+        plt.rcParams['font.family'] = 'serif'
+        plt.rcParams['text.usetex'] = True
+        plt.rcParams['pgf.rcfonts'] = False
+        plt.rcParams['pgf.texsystem'] = 'pdflatex'
+        plt.rcParams['pgf.preamble'] = r'\usepackage[T1]{fontenc}\usepackage[utf8]{inputenc}\usepackage[scaled]{helvet}\usepackage{mathptmx}\usepackage[version=3,arrows=pgf-filled]{mhchem}\usepackage{siunitx}\sisetup{detect-all=true}\usepackage{textcomp}\sisetup{per-mode=reciprocal,output-decimal-marker = {.},exponent-product = \cdot,list-units = single,range-units = single,sticky-per = true}'
         plt.rc('xtick', labelsize=10)
         plt.rc('ytick', labelsize=10)
         plt.rc('axes', labelsize=11)
@@ -98,7 +107,7 @@ class Plotter:
         plt.rcParams['legend.labelspacing'] = 0.3
         plt.rcParams['legend.title_fontsize'] = 14
 
-    def plot_w(self, t, title):
+    def plot_w(self, t):
         # create figure
         fig = plt.figure()
         ax = fig.add_subplot()
@@ -107,21 +116,19 @@ class Plotter:
         ax.set_xlim(min(self.r), max(self.r))
         ax.set_ylim(0, 1)
 
-        ax.plot(self.r, self.w_co2[:, t], label=r'$w_\mathrm{CO_2}$')
-        ax.plot(self.r, self.w_h2[:, t], label=r'$w_\mathrm{H_2}$')
-        ax.plot(self.r, self.w_ch4[:, t], label=r'$w_\mathrm{CH_4}$')
-        ax.plot(self.r, self.w_h2o[:, t], label=r'$w_\mathrm{H_2O}$')
+        ax.plot(self.r, self.w_co2[:, t], label=r'$w_{\ce{CO2}}$', color=self.colors[0])
+        ax.plot(self.r, self.w_h2[:, t], label=r'$w_{\ce{H2}}$', color=self.colors[1])
+        ax.plot(self.r, self.w_ch4[:, t], label=r'$w_{\ce{CH4}}$', color=self.colors[2])
+        ax.plot(self.r, self.w_h2o[:, t], label=r'$w_{\ce{H2O}}$', color=self.colors[4])
 
         # set title
-        ax.set_title(title)
-        ax.set_xlabel('r / mm')
-        ax.set_ylabel(r'$w_\mathrm{i}$')
-        ax.legend()
-        ax.grid()
+        ax.set_xlabel('$r$ / mm')
+        ax.set_ylabel(r'$w_i$')
+        ax.legend(frameon=True, fancybox=False, loc='best', ncol=1, framealpha=1, edgecolor='black')
         ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
         ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
-        fig.show()
+        fig.savefig('/home/jona/PycharmProjects/BachelorThesis/Figures/Plots/Closing_H2.pdf', pad_inches=self.fig_pad, bbox_inches='tight')
 
     def animate_w(self, file, title, scale=1.0):
         # create figure
@@ -197,6 +204,11 @@ class Plotter:
 
         ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t),
                                       interval=max(self.t) / len(self.t) * 1000 * scale)
+
+        dir_name = os.path.dirname(file)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+
         ani.save(file)
 
     def plot_3d(self, Z, label, title, zmin=None, zmax=None):
@@ -450,21 +462,19 @@ class Plotter:
         fig = plt.figure()
         ax = fig.add_subplot()
 
-        p_co2 = self.p * self.w_co2 * self.M / self.params.M_co2
-        p_h2 = self.p * self.w_h2 * self.M / self.params.M_h2
-        p_ch4 = self.p * self.w_ch4 * self.M / self.params.M_ch4
-        p_h2o = self.p * self.w_h2o * self.M / self.params.M_h2o
+        p_co2 = self.p[-1, :] * self.w_co2[-1, :] * self.M[-1, :] / self.params.M_co2
+        p_h2 = self.p[-1, :] * self.w_h2[-1, :] * self.M[-1, :] / self.params.M_h2
+        p_ch4 = self.p[-1, :] * self.w_ch4[-1, :] * self.M[-1, :] / self.params.M_ch4
+        p_h2o = self.p[-1, :] * self.w_h2o[-1, :] * self.M[-1, :] / self.params.M_h2o
 
-        r = (self.get_k(self.T) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
-                1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(self.T, self.p)))
-             / ((1 + self.get_K_oh(self.T) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(self.T) *
-                 (p_h2 ** 0.5) + self.get_K_mix(self.T) * (p_co2 ** 0.5)) ** 2)).full()
+        r = (self.get_k(self.T[-1, :]) * (p_h2 ** 0.5) * (p_co2 ** 0.5) * (
+                1 - (p_ch4 * (p_h2o ** 2)) / (p_co2 * (p_h2 ** 4) * self.get_K_eq(self.T[-1, :], self.p[-1, :])))
+             / ((1 + self.get_K_oh(self.T[-1, :]) * (p_h2o / (p_h2 ** 0.5)) + self.get_K_h2(self.T[-1, :]) *
+                 (p_h2 ** 0.5) + self.get_K_mix(self.T[-1, :]) * (p_co2 ** 0.5)) ** 2)).full()
 
         r = np.nan_to_num(r)
 
-        D_co2_eff = ca.vertcat(*self.D_co2_eff, self.D_co2_eff[-1])
-
-        thiele = self.params.r_max * np.sqrt(np.abs(-self.params.v_co2 * r * (1 - self.params.epsilon) * self.params.rho_s / (D_co2_eff * self.w_co2 * self.rho / self.params.M_co2)))
+        thiele = self.params.r_max * np.sqrt(np.abs(-self.params.v_co2 * r.flatten() * (1 - self.params.epsilon) * self.params.rho_s / (self.D_co2_eff[-1].full().flatten() * self.w_co2[-1, :].flatten() * self.rho[-1, :].flatten() / self.params.M_co2)))
 
         eff = (3 / thiele * (1 / np.tanh(thiele) - 1 / thiele))
 
@@ -541,7 +551,7 @@ class Plotter:
         axs[0].yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         axs[1].plot(self.t, self.w_h2[0, :].flatten())
-        axs[1].set_ylabel(r'$w_{\mathrm{H_2}, t = 0}$')
+        axs[1].set_ylabel(r'$w_{\mathrm{H_2}, r = 0}$')
         axs[1].set_xlabel('Time / s')
         axs[1].xaxis.set_minor_locator(AutoMinorLocator(n=5))
         axs[1].yaxis.set_minor_locator(AutoMinorLocator(n=5))
@@ -585,9 +595,103 @@ class Plotter:
         axs[0].yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         axs[1].plot(self.t, self.y_h2[0, :].flatten())
-        axs[1].set_ylabel(r'$y_{\mathrm{H_2}, t = 0}$')
+        axs[1].set_ylabel(r'$y_{\mathrm{H_2}, r = 0}$')
         axs[1].set_xlabel('Time / s')
         axs[1].xaxis.set_minor_locator(AutoMinorLocator(n=5))
         axs[1].yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         fig.show()
+
+    def plot_frequency(self):
+        # create figure
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        ax.set_ylabel(r'Temperature / K')
+        ax.set_xlabel(r'$y_\mathrm{H_2}$')
+        ax.plot(self.y_h2[0, :], self.T[0, :], label='catalyst center')
+        ax.plot(self.y_h2[-1, :], self.T[-1, :], label='catalyst surface')
+        ax.plot(self.y_h2_fl.flatten(), self.T_fl.flatten(), label='feed')
+
+        fig.legend()
+
+        fig.show()
+
+    def plot_dynamic_feed(self):
+        # create figure
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        ax2 = ax.twinx()
+        ax2.set_ylim(0,1)
+
+        ax.plot(self.t, self.y_h2_fl.flatten(), label=r'$y_{\mathrm{H_2}}$')
+        ax.plot(self.t, self.y_co2_fl.flatten(), label=r'$y_{\mathrm{CO_2}}$')
+        ax2.plot(self.t, self.T_fl.flatten(), label=r'$T$')
+
+        ax.set_ylabel(r'$y_i$')
+        ax.set_xlabel(r'$y_\mathrm{H_2}$')
+        ax2.set_ylabel(r'$T$ / K')
+
+        fig.legend()
+        fig.show()
+
+    def plot_dynamic_feed_y(self):
+        # create figure
+        fig = plt.figure(1, constrained_layout=True, figsize=(6, 3))
+        index = len(fig.axes) + 1
+        ax = fig.add_subplot(1, 2, index)
+
+        rad = self.t * 2 * np.pi * self.params.f_w
+
+        ax.plot(rad, self.w_h2_fl.flatten(), color=self.colors[0])
+        ax.plot(rad, self.w_co2_fl.flatten(), color=self.colors[1])
+
+        ax.axhline(self.params.w_h2_0, color=self.colors[7], alpha=0.4)
+        ax.text(ca.pi / 8, self.params.w_h2_0 + 0.03, r'\ce{H2}', color=self.colors[0])
+        ax.axhline(self.params.w_co2_0, color=self.colors[7], alpha=0.4)
+        ax.text(ca.pi / 8, self.params.w_co2_0 - 0.07, r'\ce{CO2}', color=self.colors[1])
+
+        ax.set_ylim(0, 1)
+        ax.set_xlim(0, ca.pi * 2)
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        ax.set_xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi])
+        ax.set_xticklabels(['0', r'$\frac{\pi}{2}$', r'$\pi$', r'$\frac{3\pi}{2}$', r'$2\pi$'])
+        ax.text(-0.25,1.06, '(a)' if index == 1 else '(b)', transform=ax.transAxes, fontsize=12,  weight='bold')
+
+        ax.set_ylabel(r'$w_i$')
+        ax.set_xlabel(r'radian')
+
+        #fig.show()
+        if index == 2:
+            fig.savefig('/home/jona/PycharmProjects/BachelorThesis/Figures/Plots/DynamicFeed_w.pdf', pad_inches=self.fig_pad, bbox_inches='tight')
+
+    def plot_dynamic_feed_T(self):
+        # create figure
+        fig = plt.figure(2, constrained_layout=True, figsize=(6, 3))
+        index = len(fig.axes) + 1
+        ax = fig.add_subplot(1, 2, index)
+
+        rad = self.t * 2 * np.pi * self.params.f_T
+
+        ax.plot(rad, self.T_fl.flatten(), label=r'$T$', color=self.colors[2])
+
+        ax.axhline(self.params.T_0, color=self.colors[7], alpha=0.4)
+
+        #ax.set_ylim(515, 550)
+        ax.set_xlim(0, ca.pi * 2)
+
+        ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
+
+        ax.set_xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi])
+        ax.set_xticklabels(['0', r'$\frac{\pi}{2}$', r'$\pi$', r'$\frac{3\pi}{2}$', r'$2\pi$'])
+        ax.text(-0.25,1.06, '(a)' if index == 1 else '(b)', transform=ax.transAxes, fontsize=12,  weight='bold')
+
+        ax.set_ylabel(r'$T$ / \si{\K}')
+        ax.set_xlabel(r'radian')
+
+        #fig.show()
+        if index == 2:
+            fig.savefig('/home/jona/PycharmProjects/BachelorThesis/Figures/Plots/DynamicFeed_T.pdf', pad_inches=self.fig_pad, bbox_inches='tight')
