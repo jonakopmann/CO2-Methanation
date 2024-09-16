@@ -56,7 +56,7 @@ class IntegratorStep(Integrator):
 
     def create_t_i(self):
         # we need to create a time array that has all the intersections from our 2 frequencies
-        intervals = frequency_intervals(self.params.t_max, self.params.f_w, self.params.f_T)
+        intervals = frequency_intervals(self.params.t_max, 2 * self.params.f_w, 2 * self.params.f_T)
 
         t0 = 0
         t = [np.array([0.0])]
@@ -67,10 +67,10 @@ class IntegratorStep(Integrator):
         w = False
         T = False
         for i in range(len(intervals)):
-            if ca.fabs(t0 * self.params.f_w - w_1) <= 1e-10:
+            if ca.fabs(t0 * 2 * self.params.f_w - w_1) <= 1e-10:
                 w = not w
                 w_1 += 1
-            if ca.fabs(t0 * self.params.f_T - T_1) <= 1e-10:
+            if ca.fabs(t0 * 2 * self.params.f_T - T_1) <= 1e-10:
                 T = not T
                 T_1 += 1
             steps = int(max(self.params.fps * intervals[i], self.params.x_min))
