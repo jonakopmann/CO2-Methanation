@@ -1,4 +1,3 @@
-import os
 from abc import abstractmethod
 
 import casadi as ca
@@ -6,7 +5,6 @@ import numpy as np
 
 from context import Context
 from diffusion import Diffusion
-from diffusion_coefficient import DiffusionCoefficient
 from heat_conduction import HeatConduction
 from parameters import Parameters
 from plotter import Plotter
@@ -27,7 +25,7 @@ class Integrator:
         pass
 
     @abstractmethod
-    def get_ode_fl(self, ctx: Context):
+    def get_alg_fl(self, ctx: Context):
         pass
 
     @abstractmethod
@@ -42,7 +40,6 @@ class Integrator:
         # create context
         ctx = Context(self.params)
         diff = Diffusion(self.params)
-        diff_i_eff = DiffusionCoefficient(ctx)
         reaction = Reaction(ctx)
         heat_cond = HeatConduction(ctx)
 
@@ -51,14 +48,9 @@ class Integrator:
         ode_ch4 = ca.SX(self.params.r_steps, 1)
         ode_h2o = ca.SX(self.params.r_steps, 1)
         ode_T = ca.SX(self.params.r_steps, 1)
-        alg_p = ca.SX(self.params.r_steps, 1)
 
-        alg_D_co2 = ca.SX(self.params.r_steps, 1)
-        alg_D_ch4 = ca.SX(self.params.r_steps, 1)
-        alg_D_h2o = ca.SX(self.params.r_steps, 1)
-
-        # make input dyńamic
-        alg_co2_fl, alg_h2o_fl, alg_ch4_fl, alg_T_fl = self.get_ode_fl(ctx)
+        # make input dynamic
+        alg_co2_fl, alg_h2o_fl, alg_ch4_fl, alg_T_fl = self.get_alg_fl(ctx)
 
         # create boundary conditions for the surface values
         alg_co2_surf = (ctx.w_co2_fl * ctx.rho_fl - ctx.D_co2_eff[-1] / ctx.beta_co2
@@ -67,7 +59,7 @@ class Integrator:
         alg_ch4_surf = (ctx.w_ch4_fl * ctx.rho_fl - ctx.D_ch4_eff[-1] / ctx.beta_ch4
                         * (ctx.w_ch4_surf * ctx.rho_surf - ctx.w_ch4[-1] * ctx.rho[-1]) / self.params.h
                         - ctx.w_ch4_surf * ctx.rho_surf)
-        alg_h2o_surf = (ctx.w_h2o_fl * ctx.rho_fl - ctx.D_h2o_eff[-1] / ctx.beta_h2
+        alg_h2o_surf = (ctx.w_h2o_fl * ctx.rho_fl - ctx.D_h2o_eff[-1] / ctx.beta_h2o
                         * (ctx.w_h2o_surf * ctx.rho_surf - ctx.w_h2o[-1] * ctx.rho[-1]) / self.params.h
                         - ctx.w_h2o_surf * ctx.rho_surf)
         alg_T_surf = (ctx.T_fl - self.params.lambda_eff / ctx.alpha * (ctx.T_surf - ctx.T[-1]) / self.params.h
@@ -78,7 +70,7 @@ class Integrator:
             # get reaction rate
             r = reaction.get_r(i)
 
-            # odes for w, T and p
+            # odes for w and T
             ode_co2[i] = (diff.get_term(ctx.w_co2, ctx.w_co2_surf, i, ctx.D_co2_eff[i])
                           + reaction.get_mass_term(self.params.M_co2, ctx.rho[i], self.params.v_co2, r))
             ode_ch4[i] = (diff.get_term(ctx.w_ch4, ctx.w_ch4_surf, i, ctx.D_ch4_eff[i])
@@ -86,30 +78,28 @@ class Integrator:
             ode_h2o[i] = (diff.get_term(ctx.w_h2o, ctx.w_h2o_surf, i, ctx.D_h2o_eff[i])
                           + reaction.get_mass_term(self.params.M_h2o, ctx.rho[i], self.params.v_h2o, r))
             ode_T[i] = heat_cond.get_term(i) + reaction.get_heat_term(i, r)
-            alg_p[i] = (self.params.M_0 * ctx.T[i]) / (ctx.M[i] * self.params.T_0) * self.params.p_0 - ctx.p[i]
 
-            # init binary diffusion coefficients
-            diff_i_eff.init(i)
-
-            # alg for D_i_eff
-            alg_D_co2[i] = diff_i_eff.get_D_co2(i) - ctx.D_co2_eff[i]
-            alg_D_h2o[i] = diff_i_eff.get_D_h2o(i) - ctx.D_h2o_eff[i]
-            alg_D_ch4[i] = diff_i_eff.get_D_ch4(i) - ctx.D_ch4_eff[i]
+            # # init binary diffusion coefficients
+            # diff_i_eff.init(i)
+            #
+            # # alg for D_i_eff and p
+            # alg_D_co2[i] = diff_i_eff.get_D_co2(i) - ctx.D_co2_eff[i]
+            # alg_D_h2[i] = diff_i_eff.get_D_h2(i) - ctx.D_h2_eff[i]
+            # alg_D_ch4[i] = diff_i_eff.get_D_ch4(i) - ctx.D_ch4_eff[i]
+            #alg_p[i] = (self.params.M_0 * ctx.T[i]) / (ctx.M[i] * self.params.T_0) * self.params.p_0 - ctx.p[i]
 
         # create integrator
         dae = {
             'x': ca.veccat(ctx.w_co2, ctx.w_ch4, ctx.w_h2o, ctx.T),
             'z': ca.vertcat(ctx.w_co2_surf, ctx.w_ch4_surf, ctx.w_h2o_surf, ctx.T_surf,
-                            ctx.w_co2_fl, ctx.w_ch4_fl, ctx.w_h2o_fl, ctx.T_fl,
-                            ctx.D_co2_eff, ctx.D_ch4_eff, ctx.D_h2o_eff, ctx.p),
+                            ctx.w_co2_fl, ctx.w_ch4_fl, ctx.w_h2o_fl, ctx.T_fl),
             't': ctx.t,
             'ode': ca.vertcat(ode_co2, ode_ch4, ode_h2o, ode_T),
             'alg': ca.vertcat(alg_co2_surf, alg_ch4_surf, alg_h2o_surf, alg_T_surf,
-                              alg_co2_fl, alg_ch4_fl, alg_h2o_fl, alg_T_fl,
-                              alg_D_co2, alg_D_ch4, alg_D_h2o, alg_p)
+                              alg_co2_fl, alg_ch4_fl, alg_h2o_fl, alg_T_fl)
         }
 
-        options = {'regularity_check': True}
+        options = {'regularity_check': True} # abstol
         if self.debug:
             options['verbose'] = True
             options['monitor'] = 'daeF'
@@ -124,16 +114,33 @@ class Integrator:
         # create plotter and plot
         plotter = Plotter(self.params.t_i, np.linspace(0, self.params.r_max, self.params.r_steps + 1), res, self.params)
 
-        path = f'{folder}/fw-{self.params.f_w}_deltaw-{self.params.delta_w}_fT-{self.params.f_T}_deltaT-{self.params.delta_T}_t-{self.params.t_max}'
-        #plotter.plot_X_co2('Conversion')
-        #plotter.plot_w_co2_fl_surf()
+        path = f'{folder}/fw-{self.params.f_y}_deltaw-{self.params.delta_y}_fT-{self.params.f_T}_deltaT-{self.params.delta_T}_t-{self.params.t_max}'
+        #plotter.plot_interval()
+        #plotter.plot_w_i_feed_surface()
+        #plotter.plot_conversion_per_temp()
+        plotter.plot_closing_condition()
+        #plotter.plot_dynamic_feed_w()
+        #plotter.plot_dynamic_feed_T()
+        #plotter.plot_frequency()
+        #plotter.plot_cat_eff_thiele('Thiele eff')
+        # if self.params.f_y == 1:
+        #      plotter.plot_cat_eff()
+        # else:
+        #      plotter.plot_cat_eff_2(folder)
+        #plotter.plot_frequency_center()
+
+        #plotter.plot_3d_all()
+        #plotter.plot_X_co2(folder)
+        #plotter.plot_w(len(self.params.t_i)-1)
+        #plotter.plot_feed_center('/home/jona/PycharmProjects/BachelorThesis/Figures/Plots/FeedCenter_3.pdf')
+        #plotter.plot_feed_center_2()
         #plotter.plot_w_h2_fl_surf()
-        #plotter.plot_T_fl_surf()
+        #plotter.plot_T_fl_center()
         #plotter.plot_y_co2_fl_surf()
         #plotter.plot_y_h2_fl_surf()
-        #plotter.plot_cat_eff('Catalyst efficiency')
+        #plotter.plot_cat_eff()
         #plotter.plot_cat_eff_thiele('')
-        plotter.animate_w(os.path.join(path, 'weight.mp4'), 'Mass fractions over time', 1)
-        plotter.animate_T(os.path.join(path, 'temp.mp4'), 'Temperature over time', 1, )
-        plotter.animate_Y(os.path.join(path, 'yield.mp4'), 'Yield over time', 1)
+        #plotter.animate_w(os.path.join(path, 'weight.mp4'), 'Mass fractions over time', 1)
+        #plotter.animate_T(os.path.join(path, 'temp.mp4'), 'Temperature over time', 1, )
+        #plotter.animate_Y(os.path.join(path, 'yield.mp4'), 'Yield over time', 1)
         #plotter.animate_y(os.path.join(path, 'mole.mp4'), 'Mole fractions over time', 1)

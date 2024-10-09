@@ -6,10 +6,6 @@ class HeatConduction:
         self.ctx = ctx
         self.params = ctx.params
 
-    def get_lambda(self):
-        # for now just return ref
-        return self.params.lambda_eff
-
     def get_dr(self, r):
         if r == 0:
             # dy/dr(r=0)=0
@@ -29,4 +25,4 @@ class HeatConduction:
             a = self.get_dr2(r)
         else:
             a = self.get_dr2(r) + (self.params.n / (r * self.params.h)) * self.get_dr(r)
-        return 1e9 * self.get_lambda() / (self.params.rho_s * (1 - self.params.epsilon) * self.params.cp_s + self.params.epsilon * self.ctx.rho[r] * self.ctx.cp[r]) * a
+        return 1e9 * self.params.lambda_eff / (self.params.rho_s * (1 - self.params.epsilon) * self.params.cp_s + self.params.epsilon * self.ctx.rho[r] * self.ctx.cp[r]) * a
