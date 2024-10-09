@@ -3,6 +3,7 @@ import numpy as np
 
 from context import Context
 from integrator import Integrator
+from parameters import Parameters
 from slice import Slice
 
 
@@ -51,12 +52,14 @@ def frequency_intervals(t, f1, f2):
 
 
 class IntegratorStep(Integrator):
-    s: Slice = None
-    res_final = {'xf': [], 'zf': []}
+    def __init__(self, params: Parameters):
+        super().__init__(params)
+        self.s: Slice = None
+        self.res_final = {'xf': [], 'zf': []}
 
     def create_t_i(self):
         # we need to create a time array that has all the intersections from our 2 frequencies
-        intervals = frequency_intervals(self.params.t_max, 2 * self.params.f_w, 2 * self.params.f_T)
+        intervals = frequency_intervals(self.params.t_max, 2 * self.params.f_y, 2 * self.params.f_T)
 
         t0 = 0
         t = [np.array([0.0])]
@@ -67,7 +70,7 @@ class IntegratorStep(Integrator):
         w = False
         T = False
         for i in range(len(intervals)):
-            if ca.fabs(t0 * 2 * self.params.f_w - w_1) <= 1e-10:
+            if ca.fabs(t0 * 2 * self.params.f_y - w_1) <= 1e-10:
                 w = not w
                 w_1 += 1
             if ca.fabs(t0 * 2 * self.params.f_T - T_1) <= 1e-10:
@@ -84,23 +87,29 @@ class IntegratorStep(Integrator):
 
     def get_x0(self):
         if self.s.step == 0:
+            # return ca.vertcat(np.full(self.params.r_steps, self.params.w_co2_0+ self.params.delta_w), np.full(self.params.r_steps, self.params.w_ch4_0), np.full(self.params.r_steps, self.params.w_h2_0 - self.params.delta_w),
+            #         np.full(self.params.r_steps, self.params.T_0 + self.params.delta_T))
             return self.params.x0
         else:
             return self.res_final['xf'][:, -1]
 
     def get_z0(self):
         if self.s.step == 0:
-            return self.params.z0
+            ret = self.params.z0
         else:
-            return self.res_final['zf'][:, -1]
+            ret = self.res_final['zf'][:, -1]
+        ret[0] = self.params.w_co2_0 + self.params.delta_y if self.s.w else self.params.w_co2_0 - self.params.delta_y
+        ret[2] = self.params.w_h2_0 - self.params.delta_y if self.s.w else self.params.w_h2_0 + self.params.delta_y
+        ret[3] = self.params.T_0 + self.params.delta_T if self.s.T else self.params.T_0 - self.params.delta_T
+        return ret
 
-    def get_ode_fl(self, ctx: Context):
+    def get_alg_fl(self, ctx: Context):
         if self.s.w:
-            alg_co2_fl = (self.params.w_co2_0 + self.params.delta_w - ctx.w_co2_fl)
-            alg_h2_fl = (self.params.w_h2_0 - self.params.delta_w - ctx.w_h2_fl)
+            alg_co2_fl = (self.params.y_co2_0 + self.params.delta_y - ctx.y_co2_fl)
+            alg_h2_fl = (self.params.y_h2_0 - self.params.delta_y - ctx.y_h2_fl)
         else:
-            alg_co2_fl = (self.params.w_co2_0 - self.params.delta_w - ctx.w_co2_fl)
-            alg_h2_fl = (self.params.w_h2_0 + self.params.delta_w - ctx.w_h2_fl)
+            alg_co2_fl = (self.params.y_co2_0 - self.params.delta_y - ctx.y_co2_fl)
+            alg_h2_fl = (self.params.y_h2_0 + self.params.delta_y - ctx.y_h2_fl)
         if self.s.T:
             alg_T_fl = self.params.T_0 + self.params.delta_T - ctx.T_fl
         else:
@@ -128,4 +137,4 @@ class IntegratorStep(Integrator):
             self.res_final['xf'] = ca.horzcat(self.res_final['xf'], res['xf'][:, skip:])
             self.res_final['zf'] = ca.horzcat(self.res_final['zf'], res['zf'][:, skip:])
 
-        self.plot(self.res_final, 'plots_step')
+        self.plot(self.res_final, 'step')
