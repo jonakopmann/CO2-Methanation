@@ -92,6 +92,7 @@ class Plotter:
 
     def set_params(self):
         plt.rcParams['figure.figsize'] = (3.5, 3.5)
+        plt.rcParams['figure.dpi'] = 600
         plt.rcParams['axes.linewidth'] = 1  # set the value globally
         mpl.use('pgf')
         plt.rcParams['font.family'] = 'serif'
@@ -148,49 +149,42 @@ class Plotter:
 
         fig.savefig('/home/jona/PycharmProjects/BachelorThesis/Figures/Plots/Closing_H2O_2.pdf', pad_inches=self.fig_pad, bbox_inches='tight')
 
-    def animate_w(self, file, title, scale=1.0):
+    def animate_w(self):
+        plt.rcParams['text.usetex'] = False
         # create figure
-        fig = plt.figure()
+        fig = plt.figure(constrained_layout=True)
         ax = fig.add_subplot()
 
         # set limits for x and y axis (r and w)
         ax.set_xlim(min(self.r), max(self.r))
         ax.set_ylim(0, 1)
 
-        line_co2, = ax.plot(self.r, self.w_co2[:, 0], label=r'$w_\mathrm{CO_2}$')
-        line_h2, = ax.plot(self.r, self.w_h2[:, 0], label=r'$w_\mathrm{H_2}$')
-        line_ch4, = ax.plot(self.r, self.w_ch4[:, 0], label=r'$w_\mathrm{CH_4}$')
-        line_h2o, = ax.plot(self.r, self.w_h2o[:, 0], label=r'$w_\mathrm{H_2O}$')
+        line_co2, = ax.plot(self.r, self.y_co2[:, 0], label=r'$y_\mathrm{CO_2}$')
+        line_h2, = ax.plot(self.r, self.y_h2[:, 0], label=r'$y_\mathrm{H_2}$')
+        line_ch4, = ax.plot(self.r, self.y_ch4[:, 0], label=r'$y_\mathrm{CH_4}$')
+        line_h2o, = ax.plot(self.r, self.y_h2o[:, 0], label=r'$y_\mathrm{H_2O}$')
 
         # add a text element to display the time
         time_text = ax.text(0.2, 0.9, 't = {:.2f}'.format(self.t[0]), transform=ax.transAxes)
 
         # set title
-        ax.set_title(title)
-        ax.set_xlabel('r / mm')
-        ax.set_ylabel(r'$w_\mathrm{i}$')
-        ax.legend(loc='upper left')
-        ax.grid()
+        ax.set_xlabel('$r$ / mm')
+        ax.set_ylabel(r'$y_\mathrm{i}$')
         ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
         ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
         def anim(t):
-            line_co2.set_ydata(self.w_co2[:, t])
-            line_h2.set_ydata(self.w_h2[:, t])
-            line_ch4.set_ydata(self.w_ch4[:, t])
-            line_h2o.set_ydata(self.w_h2o[:, t])
+            line_co2.set_ydata(self.y_co2[:, t])
+            line_h2.set_ydata(self.y_h2[:, t])
+            line_ch4.set_ydata(self.y_ch4[:, t])
+            line_h2o.set_ydata(self.y_h2o[:, t])
             time_text.set_text('t = {:.2f}'.format(self.t[t]))  # update the time text
 
         ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t),
-                                      interval=max(self.t) / len(self.t) * 1000 * scale)
+                                      interval=max(self.t) / len(self.t) * 1000)
+        ani.save('/home/jona/PycharmProjects/BachelorThesis/Figures/Plots/anim_y.mp4')
 
-        dir_name = os.path.dirname(file)
-        if not os.path.exists(dir_name):
-            os.makedirs(dir_name)
-
-        ani.save(file)
-
-    def animate_T(self, file, title, scale=1.0):
+    def animate_T(self):
         # create figure
         fig = plt.figure()
         ax = fig.add_subplot()
@@ -207,10 +201,8 @@ class Plotter:
         time_text = ax.text(0.05, 0.9, 't = {:.2f}'.format(self.t[0]), transform=ax.transAxes)
 
         # set title
-        ax.set_title(title)
-        ax.set_xlabel('r / mm')
-        ax.set_ylabel('T / K')
-        ax.grid()
+        ax.set_xlabel('$r$ / mm')
+        ax.set_ylabel('$T$ / K')
         ax.xaxis.set_minor_locator(AutoMinorLocator(n=5))
         ax.yaxis.set_minor_locator(AutoMinorLocator(n=5))
 
@@ -221,13 +213,8 @@ class Plotter:
             time_text.set_text('t = {:.2f}'.format(self.t[t]))  # update the time text
 
         ani = animation.FuncAnimation(fig, func=anim, frames=len(self.t),
-                                      interval=max(self.t) / len(self.t) * 1000 * scale)
-
-        dir_name = os.path.dirname(file)
-        if not os.path.exists(dir_name):
-            os.makedirs(dir_name)
-
-        ani.save(file)
+                                      interval=max(self.t) / len(self.t) * 1000)
+        ani.save('/home/jona/PycharmProjects/BachelorThesis/Figures/Plots/anim_y.mp4')
 
     def plot_3d(self, Z, label, title, zmin=None, zmax=None):
         fig = plt.figure()
